@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>GetReady</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        palette: {
+                            mint: '#BDE2E3',
+                            teal: '#2DB9B1',
+                            pink: '#FF007A',
+                            gold: '#C5A04D',
+                            copper: '#B7763D',
+                            emerald: '#19A28E',
+                        }
+                    },
+                    animation: {
+                        'jelly-shimmer': 'highlightShimmer 5s ease-in-out infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+        
+        :root {
+            --ios-pink: #FF007A;
+            --palette-mint: #BDE2E3;
+            --palette-teal: #2DB9B1;
+            --palette-gold: #C5A04D;
+            --palette-copper: #B7763D;
+            --palette-emerald: #19A28E;
+        }
+
+        body {
+            font-family: -apple-system, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Inter", sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            -webkit-tap-highlight-color: transparent;
+            background-color: #000;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            letter-spacing: -0.015em;
+        }
+
+        @keyframes highlightShimmer {
+            0%, 100% { transform: translate(-2px, -1px) rotate(-5deg); opacity: 0.5; }
+            50% { transform: translate(3px, 2px) rotate(-4deg); opacity: 0.8; }
+        }
+
+        .font-mango {
+            font-family: 'Bodoni Moda', serif;
+            letter-spacing: -0.03em;
+            font-weight: 900;
+            line-height: 0.85;
+        }
+
+        .font-gurmukhi {
+            font-family: "Gurmukhi MN", -apple-system, sans-serif;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+        }
+
+        .font-skia {
+            font-family: 'Skia', 'SF Pro Display', 'Inter', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        .font-bodoni-smallcaps {
+            font-family: 'Bodoni Moda', serif;
+            font-variant: small-caps;
+            letter-spacing: 0.05em;
+            font-weight: 500;
+        }
+
+        .header-ombre {
+            background: linear-gradient(to bottom, #FFFFFF 20%, #19A28E 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
+        }
+
+        .font-garet {
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: -0.01em;
+            font-weight: 500;
+        }
+
+        #root {
+            min-height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .glass-panel-gold {
+            background: rgba(197, 160, 77, 0.07);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 0.5px solid rgba(197, 160, 77, 0.15);
+        }
+
+        .ios-title {
+            letter-spacing: -0.04em;
+            line-height: 0.9;
+        }
+
+        .ios-caption {
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-weight: 900;
+        }
+
+        ::-webkit-scrollbar {
+            width: 0;
+            height: 0;
+        }
+
+        .ios-btn-active:active {
+            transform: scale(0.96);
+            opacity: 0.8;
+            transition: all 0.1s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-ios {
+            animation: fadeIn 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+        }
+
+        .label-transition {
+            transition: opacity 180ms ease-out, transform 180ms ease-out;
+            will-change: opacity, transform;
+        }
+        .label-hidden {
+            opacity: 0;
+            transform: translateY(-4px);
+        }
+        .label-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .label-transition {
+                transition: none !important;
+                transform: none !important;
+            }
+            .label-hidden {
+                opacity: 0 !important;
+            }
+            .label-visible {
+                opacity: 1 !important;
+            }
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@/": "./"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>

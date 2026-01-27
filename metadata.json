@@ -1,0 +1,5 @@
+{
+  "name": "GetReady (iOS Prototype)",
+  "description": "A clean, SwiftUI-inspired prototype for managing Spotify playlists and podcasts with AI-powered mix insights.",
+  "requestFramePermissions": []
+}

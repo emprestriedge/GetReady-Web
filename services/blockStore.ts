@@ -1,0 +1,38 @@
+import { BlockedTrack, Track, SpotifyTrack } from '../types';
+
+const STORAGE_KEY = 'blockedTracks';
+
+export const BlockStore = {
+  getBlocked: (): BlockedTrack[] => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : [];
+  },
+
+  isBlocked: (id: string): boolean => {
+    const blocked = BlockStore.getBlocked();
+    return blocked.some(t => t.id === id);
+  },
+
+  addBlocked: (track: SpotifyTrack | Track): void => {
+    const blocked = BlockStore.getBlocked();
+    const id = ('id' in track) ? track.id : track.uri.split(':').pop() || '';
+    
+    if (blocked.some(t => t.id === id)) return;
+
+    const newBlocked: BlockedTrack = {
+      id,
+      name: ('name' in track) ? track.name : track.title,
+      artist: ('artists' in track) ? track.artists[0].name : track.artist,
+      album: ('album' in track) ? (typeof track.album === 'string' ? track.album : track.album.name) : track.album,
+      addedAt: new Date().toISOString()
+    };
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([newBlocked, ...blocked]));
+  },
+
+  removeBlocked: (id: string): void => {
+    const blocked = BlockStore.getBlocked();
+    const filtered = blocked.filter(t => t.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  }
+};
