@@ -79,14 +79,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
   if (mode === 'devTools') return <DeveloperToolsView onBack={() => setMode('root')} onNavigate={setMode} />;
 
   return (
-    <div className="p-4 animate-in fade-in duration-500 pb-32 w-full max-w-full overflow-x-hidden box-border">
+    <div className="p-4 animate-in fade-in duration-500 pb-32">
       <header className="mt-14 mb-10 px-2">
-        <h1 className="header-text-responsive font-mango header-ombre">Settings</h1>
+        <h1 className="text-8xl font-mango header-ombre leading-none">Settings</h1>
       </header>
 
-      <div className="flex flex-col gap-8 w-full max-w-full overflow-x-hidden">
+      <div className="flex flex-col gap-8">
         {/* Spotify Connection Section - Always Visible */}
-        <section className="w-full">
+        <section>
           <div className="flex justify-between items-center mb-3 ml-5 pr-5">
             <h2 className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.2em]">Spotify Connection</h2>
           </div>
@@ -99,7 +99,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
                 value={config.spotifyClientId || ''}
                 onChange={(e) => configStore.updateSpotifyClientId(e.target.value)}
                 placeholder="Paste Client ID from Spotify Dev Dashboard"
-                className="bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-[#D1F2EB] font-garet font-bold outline-none focus:border-palette-pink transition-all w-full"
+                className="bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-[#D1F2EB] font-garet font-bold outline-none focus:border-palette-pink transition-all"
               />
               {!config.spotifyClientId && (
                 <p className="text-[9px] text-palette-pink font-black uppercase tracking-widest px-1 mt-1">Enter Client ID to connect.</p>
@@ -159,7 +159,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
           </div>
         </section>
 
-        <section className="w-full">
+        <section>
           <h2 className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.2em] ml-5 mb-3">Custom Mix Rules</h2>
           <div className="glass-panel-gold rounded-3xl overflow-hidden divide-y divide-white/5">
             <SettingsRow 
@@ -192,7 +192,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
           </div>
         </section>
 
-        <section className="w-full">
+        <section>
           <h2 className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.2em] ml-5 mb-3">Global Mix Logic</h2>
           <div className="glass-panel-gold rounded-3xl overflow-hidden divide-y divide-white/5">
             <div className="px-6 py-5 flex flex-col gap-4">
@@ -224,7 +224,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
           </div>
         </section>
 
-        <section className="w-full">
+        <section>
           <h2 className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.2em] ml-5 mb-3">Advanced</h2>
           <div className="glass-panel-gold rounded-3xl overflow-hidden divide-y divide-white/5">
             <div className="px-6 py-5 flex items-center justify-between">
@@ -246,14 +246,14 @@ const SettingsRow: React.FC<{ icon: string; label: string; subtext: string; onCl
     onClick={onClick}
     className={`w-full px-6 py-5 flex items-center justify-between active:bg-white/5 transition-colors group ${highlight ? 'bg-palette-pink/5' : ''}`}
   >
-    <div className="flex items-center gap-4 text-left min-w-0">
-      <span className="text-2xl group-active:scale-110 transition-transform shrink-0">{icon}</span>
-      <div className="flex flex-col min-w-0">
-        <span className={`text-[20px] font-garet font-semibold transition-colors truncate ${highlight ? 'text-palette-pink' : 'text-[#A9E8DF]'}`}>{label}</span>
-        <span className="text-[10px] text-zinc-600 font-medium truncate">{subtext}</span>
+    <div className="flex items-center gap-4 text-left">
+      <span className="text-2xl group-active:scale-110 transition-transform">{icon}</span>
+      <div className="flex flex-col">
+        <span className={`text-[20px] font-garet font-semibold transition-colors ${highlight ? 'text-palette-pink' : 'text-[#A9E8DF]'}`}>{label}</span>
+        <span className="text-[10px] text-zinc-600 font-medium">{subtext}</span>
       </div>
     </div>
-    <svg className="w-5 h-5 text-zinc-700 group-active:translate-x-1 transition-transform shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-5 h-5 text-zinc-700 group-active:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
     </svg>
   </button>
@@ -262,7 +262,7 @@ const SettingsRow: React.FC<{ icon: string; label: string; subtext: string; onCl
 const Toggle: React.FC<{ checked: boolean; onToggle: () => void }> = ({ checked, onToggle }) => (
   <button 
     onClick={onToggle}
-    className={`w-14 h-8 rounded-full transition-all relative active:scale-90 shrink-0 ${checked ? 'bg-palette-pink shadow-[0_0_12px_rgba(255,0,122,0.4)]' : 'bg-zinc-800'}`}
+    className={`w-14 h-8 rounded-full transition-all relative active:scale-90 ${checked ? 'bg-palette-pink shadow-[0_0_12px_rgba(255,0,122,0.4)]' : 'bg-zinc-800'}`}
   >
     <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-lg transition-all ${checked ? 'left-[26px]' : 'left-1'}`} />
   </button>
