@@ -42,6 +42,9 @@
             overflow-x: hidden;
             width: 100%;
             position: relative;
+            /* Prevents horizontal "rubber-banding" on mobile */
+            touch-action: pan-y;
+            -webkit-overflow-scrolling: touch;
         }
 
         body {
@@ -69,13 +72,14 @@
         }
 
         .font-gurmukhi {
-            font-family: "Gurmukhi MN", -apple-system, sans-serif;
-            font-weight: 700;
-            letter-spacing: -0.03em;
+            /* Fallback stack for iOS: SF Pro Rounded provides the geometric weight of Gurmukhi MN */
+            font-family: "Gurmukhi MN", "SF Pro Rounded", "SF Pro Display", -apple-system, sans-serif;
+            font-weight: 800;
+            letter-spacing: -0.02em;
         }
 
         .font-skia {
-            font-family: 'Skia', 'SF Pro Display', 'Inter', sans-serif;
+            font-family: 'Skia', "SF Pro Rounded", 'SF Pro Display', 'Inter', sans-serif;
             letter-spacing: -0.02em;
         }
 

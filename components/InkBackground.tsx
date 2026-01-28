@@ -18,7 +18,7 @@ export default function InkBackground({ children }: { children?: React.ReactNode
 
   return (
     <div style={{ 
-      minHeight: "100vh", 
+      minHeight: "100dvh", 
       width: "100%", 
       position: "relative", 
       backgroundColor: "#000", 
@@ -42,7 +42,7 @@ export default function InkBackground({ children }: { children?: React.ReactNode
       <div style={{ 
         position: "relative", 
         zIndex: 10, 
-        height: "100vh", 
+        minHeight: "100dvh", 
         width: "100%",
         display: "flex",
         flexDirection: "column",
