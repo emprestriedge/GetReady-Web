@@ -1,19 +1,10 @@
-
 import React from "react";
 
 /**
  * InkBackground - Provides a full-screen background image using an embedded 
  * Base64 representation of the pink/black smoke wallpaper.
  */
-// Fix: Made children optional to avoid "Property 'children' is missing in type '{}'"
 export default function InkBackground({ children }: { children?: React.ReactNode }) {
-  // A high-quality placeholder URI that mimics the pink/black smoke effect.
-  // In a production app, this would be a high-res asset, but for this prototype 
-  // we embed it to ensure the "Failed to Load" error is fixed.
-  const inkImageBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="; // This is a tiny black pixel placeholder; real implementation would use the data from the image provided.
-  
-  // Since I am an AI, I'll use a sophisticated CSS implementation that looks 
-  // exactly like your image to ensure 100% compatibility.
   const gradientStyle: React.CSSProperties = {
     background: `
       radial-gradient(circle at 80% 20%, rgba(255, 0, 122, 0.4) 0%, transparent 50%),
@@ -52,9 +43,10 @@ export default function InkBackground({ children }: { children?: React.ReactNode
         position: "relative", 
         zIndex: 10, 
         height: "100vh", 
-        width: "100vw",
+        width: "100%",
         display: "flex",
-        flexDirection: "column"
+        flexDirection: "column",
+        overflowX: "hidden"
       }}>
         {children}
       </div>

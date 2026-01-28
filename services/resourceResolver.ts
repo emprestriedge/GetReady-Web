@@ -5,27 +5,7 @@ import { RAP_SOURCE_PLAYLIST_NAMES } from '../constants';
 import { SpotifyApi } from './spotifyApi';
 import { SpotifySource } from '../types';
 
-const RESOURCE_CACHE_KEY = 'spotify_resource_ids_v3';
-
-interface ResourceCache {
-  playlists: Record<string, string>;
-  shows: Record<string, string>;
-  rapSources: Record<string, SpotifySource | "Unlinked">;
-  updatedAt: number;
-}
-
 export const ResourceResolver = {
-  getCache: (): ResourceCache => {
-    const saved = localStorage.getItem(RESOURCE_CACHE_KEY);
-    const cache = saved ? JSON.parse(saved) : { playlists: {}, shows: {}, rapSources: {}, updatedAt: 0 };
-    return cache;
-  },
-
-  saveCache: (cache: ResourceCache) => {
-    cache.updatedAt = Date.now();
-    localStorage.setItem(RESOURCE_CACHE_KEY, JSON.stringify(cache));
-  },
-
   normalizeName: (name: string): string => {
     return name
       .toLowerCase()
@@ -56,7 +36,7 @@ export const ResourceResolver = {
   resolveAll: async () => {
     apiLogger.logClick("Resolver: Syncing catalog links...");
     const appConfig = configStore.getConfig();
-    const catalog = appConfig.catalog;
+    const catalog = { ...appConfig.catalog };
     let changed = false;
 
     const userPlaylists = await ResourceResolver.fetchAllUserPlaylists();

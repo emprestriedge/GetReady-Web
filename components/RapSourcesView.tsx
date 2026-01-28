@@ -5,7 +5,8 @@ import { RAP_SOURCE_PLAYLIST_NAMES } from '../constants';
 import { PinkAsterisk } from './HomeView';
 import { apiLogger } from '../services/apiLogger';
 import { SpotifyDataService } from '../services/spotifyDataService';
-import { SpotifySourceType } from '../types';
+import { SpotifySourceType, AppConfig } from '../types';
+import { configStore } from '../services/configStore';
 
 interface RapSourcesViewProps {
   onBack: () => void;
@@ -18,7 +19,7 @@ interface UserPlaylist {
 }
 
 const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
-  const [cache, setCache] = useState(ResourceResolver.getCache());
+  const [config, setConfig] = useState<AppConfig>(configStore.getConfig());
   const [refreshing, setRefreshing] = useState(false);
   const [showPickerFor, setShowPickerFor] = useState<string | null>(null);
   const [showUrlInputFor, setShowUrlInputFor] = useState<string | null>(null);
@@ -28,7 +29,10 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
   const [pickerLoading, setPickerLoading] = useState(false);
 
   useEffect(() => {
-    setCache(ResourceResolver.getCache());
+    const unsub = configStore.subscribe(() => {
+      setConfig(configStore.getConfig());
+    });
+    return unsub;
   }, []);
 
   const handleRefresh = async () => {
@@ -37,17 +41,7 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
     apiLogger.logClick("RapSources: User initiated manual refresh.");
 
     try {
-      // Clear specific Rap Unlinked cache to force a retry for those items
-      const current = ResourceResolver.getCache();
-      Object.keys(current.rapSources).forEach(name => {
-        if (current.rapSources[name] === "Unlinked") {
-          delete current.rapSources[name];
-        }
-      });
-      ResourceResolver.saveCache(current);
-
       await ResourceResolver.resolveAll();
-      setCache(ResourceResolver.getCache());
       Haptics.success();
     } catch (e: any) {
       Haptics.error();
@@ -64,7 +58,6 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
     setSearchTerm("");
     setPickerLoading(true);
     try {
-      // Exhaustive fetch from library
       const list = await ResourceResolver.fetchAllUserPlaylists();
       setUserPlaylists(list.map(p => ({
         id: p.id,
@@ -91,10 +84,10 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
   const selectFromPicker = (playlistId: string) => {
     if (!showPickerFor) return;
     Haptics.success();
-    const current = ResourceResolver.getCache();
-    current.rapSources[showPickerFor] = { id: playlistId, type: 'playlist' };
-    ResourceResolver.saveCache(current);
-    setCache({ ...current });
+    
+    const nextRapSources = { ...config.catalog.rapSources, [showPickerFor]: { id: playlistId, type: 'playlist' as const } };
+    configStore.updateCatalog({ rapSources: nextRapSources });
+    
     setShowPickerFor(null);
     apiLogger.logClick(`RapSources: Linked slot "${showPickerFor}" to ID ${playlistId}`);
   };
@@ -111,6 +104,10 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
     } else if (urlInput.includes('/album/')) {
       type = 'album';
       id = urlInput.split('/album/')[1]?.split('?')[0];
+    } else if (!urlInput.includes('/')) {
+        // Assume raw ID
+        type = 'playlist';
+        id = urlInput;
     }
 
     if (!type || !id) {
@@ -119,18 +116,16 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
     }
 
     Haptics.success();
-    const current = ResourceResolver.getCache();
-    current.rapSources[showUrlInputFor] = { id, type };
-    ResourceResolver.saveCache(current);
-    setCache({ ...current });
+    const nextRapSources = { ...config.catalog.rapSources, [showUrlInputFor]: { id, type } };
+    configStore.updateCatalog({ rapSources: nextRapSources });
+    
     setShowUrlInputFor(null);
     setUrlInput("");
     apiLogger.logClick(`RapSources: Linked "${showUrlInputFor}" by URL (${type}: ${id})`);
   };
 
   const getSource = (name: string) => {
-    const s = cache.rapSources[name];
-    return s && s !== "Unlinked" ? s : null;
+    return config.catalog.rapSources?.[name] || null;
   };
 
   const linkedCount = RAP_SOURCE_PLAYLIST_NAMES.filter(name => getSource(name)).length;

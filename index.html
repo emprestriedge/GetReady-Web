@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
     <title>GetReady</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -36,6 +36,12 @@
             --palette-gold: #C5A04D;
             --palette-copper: #B7763D;
             --palette-emerald: #19A28E;
+        }
+
+        html, body {
+            overflow-x: hidden;
+            width: 100%;
+            position: relative;
         }
 
         body {
@@ -95,9 +101,10 @@
 
         #root {
             min-height: 100vh;
-            width: 100vw;
+            width: 100%;
             display: flex;
             flex-direction: column;
+            overflow-x: hidden;
         }
         
         .glass-panel-gold {

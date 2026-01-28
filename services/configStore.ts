@@ -41,7 +41,19 @@ class ConfigStore {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        this.config = { ...DEFAULT_CONFIG, ...parsed };
+        // Deep merge catalog specifically to protect hardcoded defaults from overwriting with empty states
+        this.config = { 
+          ...DEFAULT_CONFIG, 
+          ...parsed,
+          catalog: {
+            ...DEFAULT_CONFIG.catalog,
+            ...(parsed.catalog || {}),
+            rapSources: {
+              ...DEFAULT_CONFIG.catalog.rapSources,
+              ...(parsed.catalog?.rapSources || {})
+            }
+          }
+        };
       } catch (e) {
         apiLogger.logError("ConfigStore: Failed to parse stored config.");
       }
@@ -75,17 +87,12 @@ class ConfigStore {
       } catch (e) {}
     }
 
-    // 3. Inject missing Rap sources if they aren't linked
-    const sourcesToInject = {
-      "I Love My 90s Hip‑Hop": { id: "37i9dQZF1DX186v583rmzp", type: "playlist" as const },
-      "2Pac – All Eyez On Me": { id: "78iX7tMceN0FsnmabAtlOC", type: "album" as const },
-      "2Pac – Greatest Hits": { id: "1WBZyULtlANBKed7Zf9cDP", type: "album" as const }
-    };
-
+    // 3. Ensure defaults are present for Rap sources
+    const sourcesToInject = DEFAULT_CONFIG.catalog.rapSources;
     Object.entries(sourcesToInject).forEach(([name, source]) => {
       if (!this.config.catalog.rapSources[name]) {
         this.config.catalog.rapSources[name] = source;
-        apiLogger.logClick(`ConfigStore: Injected default Rap source ID for "${name}"`);
+        apiLogger.logClick(`ConfigStore: Re-injected default Rap source ID for "${name}"`);
       }
     });
 

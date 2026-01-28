@@ -282,18 +282,23 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
 
 interface CategoryCardProps { title: string; description: string; icon: React.ReactNode; gradient: string; shadowColor: string; onClick: () => void; }
 const CategoryCard: React.FC<CategoryCardProps> = ({ title, description, icon, gradient, shadowColor, onClick }) => (
-  <button onClick={() => { Haptics.medium(); onClick(); }} className="w-full text-left bg-palette-gold/5 backdrop-blur-3xl rounded-[38px] p-6 ios-btn-active flex items-center gap-6 group border border-white/5 shadow-2xl relative overflow-hidden transition-all duration-300 active:scale-95">
-    <div className="relative">
-      <div className={`w-24 h-24 bg-gradient-to-br ${gradient} rounded-[32px] flex items-center justify-center shadow-xl relative overflow-hidden transition-all duration-300 transform group-hover:scale-105`} style={{ boxShadow: `0 12px 25px -8px ${shadowColor}, inset 0 6px 15px rgba(255, 255, 255, 0.45), inset 0 -10px 25px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.15)` }}>
+  <button 
+    onClick={() => { Haptics.medium(); onClick(); }} 
+    className="w-full text-left bg-palette-gold/5 backdrop-blur-3xl rounded-[38px] p-4 sm:p-6 ios-btn-active flex items-center gap-4 sm:gap-6 group border border-white/5 shadow-2xl relative overflow-hidden transition-all duration-300 active:scale-95"
+  >
+    <div className="relative shrink-0">
+      <div className={`w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br ${gradient} rounded-[28px] sm:rounded-[32px] flex items-center justify-center shadow-xl relative overflow-hidden transition-all duration-300 transform group-hover:scale-105`} style={{ boxShadow: `0 12px 25px -8px ${shadowColor}, inset 0 6px 15px rgba(255, 255, 255, 0.45), inset 0 -10px 25px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.15)` }}>
         <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/50 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
         <div className="relative z-10 flex items-center justify-center transform group-active:scale-90 transition-transform duration-200">{icon}</div>
       </div>
     </div>
-    <div className="flex-1 z-10">
-      <h3 className="text-5xl font-bodoni-smallcaps text-[#D1F2EB] leading-tight drop-shadow-sm">{title}</h3>
-      <p className="text-[15px] text-zinc-500 font-medium leading-tight mt-1 opacity-70 group-active:opacity-100 transition-opacity">{description}</p>
+    <div className="flex-1 z-10 min-w-0">
+      <h3 className="text-3xl sm:text-5xl font-bodoni-smallcaps text-[#D1F2EB] leading-tight drop-shadow-sm truncate">{title}</h3>
+      <p className="text-xs sm:text-[15px] text-zinc-500 font-medium leading-tight mt-1 opacity-70 group-active:opacity-100 transition-opacity line-clamp-2">{description}</p>
     </div>
-    <div className="pr-1 opacity-20 group-active:opacity-100 group-active:translate-x-1 transition-all duration-200"><svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg></div>
+    <div className="pr-1 opacity-20 group-active:opacity-100 group-active:translate-x-1 transition-all duration-200 shrink-0">
+      <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
+    </div>
   </button>
 );
 
