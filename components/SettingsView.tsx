@@ -106,12 +106,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
               />
             </div>
 
-            {/* WHITELIST HELPER: Solves the "Refused to Connect" error */}
+            {/* WHITELIST HELPER: Solves the redirect mismatch error */}
             {!spotifyUser && config.spotifyClientId && (
               <div className="bg-palette-pink/5 border border-palette-pink/20 rounded-2xl p-4 flex flex-col gap-2">
                 <span className="text-[9px] font-black text-palette-pink uppercase tracking-widest">⚠️ Connection Troubleshooting</span>
                 <p className="text-[11px] text-zinc-500 font-garet leading-tight">
-                  Ensure the URI below is added to your Spotify Dashboard under <b>Redirect URIs</b>:
+                  Ensure the exact URL below is added to your Spotify Dashboard under <b>Redirect URIs</b>:
                 </p>
                 <div className="flex items-center gap-2 bg-black/40 p-3 rounded-xl border border-white/5 mt-1">
                   <code className="text-[10px] text-palette-teal font-mono truncate flex-1">{currentRedirectUri}</code>
@@ -149,7 +149,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
                  </div>
                  <div className="relative z-10 flex-1">
                    <h3 className="text-xl font-garet font-bold text-white">Link Account</h3>
-                   <p className="text-xs text-white/60 font-medium">PKCE Auth Flow</p>
+                   <p className="text-xs text-white/60 font-medium">Direct Redirect Flow</p>
                  </div>
                  <div className="relative z-10 bg-white/20 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest text-white">Connect</div>
                </button>

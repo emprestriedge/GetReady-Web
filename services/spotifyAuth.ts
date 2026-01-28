@@ -52,19 +52,12 @@ export const SpotifyAuth = {
   },
 
   /**
-   * getRedirectUri - Returns the URI that MUST be whitelisted in Spotify Dashboard.
-   * Explicitly handles localhost vs production for reliable PWA behavior.
+   * getRedirectUri - Returns the root origin for PWA compatibility.
+   * NOTE: This URI must be EXACTLY whitelisted in the Spotify Developer Dashboard.
    */
   getRedirectUri: () => {
-    const hostname = window.location.hostname;
-    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
-    
-    if (isLocal) {
-      return `${window.location.origin}/callback.html`;
-    }
-    
-    // Force production URL for all other environments (Netlify, etc)
-    return 'https://getready3.netlify.app/callback.html';
+    // We append a trailing slash to ensure it matches common Spotify Dashboard patterns
+    return window.location.origin + '/';
   },
 
   generateRandomString: (length: number) => {
@@ -87,8 +80,7 @@ export const SpotifyAuth = {
   },
 
   /**
-   * login - Always uses a full page redirect. 
-   * This is the most reliable method for iOS Home Screen apps (standalone mode).
+   * login - Always uses a full-page redirect to handle standalone PWA mode.
    */
   login: async () => {
     const clientId = SpotifyAuth.getClientId();
@@ -102,7 +94,7 @@ export const SpotifyAuth = {
     const state = SpotifyAuth.generateRandomString(16);
     const redirectUri = SpotifyAuth.getRedirectUri();
 
-    // Use localStorage so it survives the PWA context switch
+    // Use localStorage to survive the redirect/PWA context switch
     localStorage.setItem('spotify_pkce_verifier', codeVerifier);
     localStorage.setItem('spotify_auth_state', state);
 
@@ -117,7 +109,7 @@ export const SpotifyAuth = {
     });
 
     const url = `https://accounts.spotify.com/authorize?${params.toString()}`;
-    apiLogger.logClick(`Auth: Full page redirect to Spotify`);
+    apiLogger.logClick(`Auth: Initiating full-page redirect to Spotify`);
     window.location.href = url;
   },
 
@@ -126,7 +118,6 @@ export const SpotifyAuth = {
     const codeVerifier = localStorage.getItem('spotify_pkce_verifier');
     const savedState = localStorage.getItem('spotify_auth_state');
 
-    // Security check
     if (state && savedState && state !== savedState) {
       throw new Error("Security check failed: State mismatch.");
     }

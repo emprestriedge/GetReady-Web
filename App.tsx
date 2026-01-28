@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import { TabType, RuleSettings, RunOption, RunRecord, SpotifyUser, RunResult, AppConfig } from './types';
 import HomeView from './components/HomeView';
 import HistoryView from './components/HistoryView';
@@ -28,15 +27,14 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix: Using React.Component and explicit state property to ensure properties are correctly typed and recognized by TypeScript
+// Explicitly extending React.Component and providing props/state types to resolve 'Property props does not exist' error
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
-  };
-
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
   }
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
@@ -51,7 +49,6 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   render() {
-    // Fix: Access state and props via this context which are now recognized as members of React.Component
     if (this.state.hasError) {
       return (
         <div className="fixed inset-0 bg-black flex items-center justify-center p-8 z-[999]">
@@ -125,9 +122,7 @@ const App: React.FC = () => {
       const code = params.get('code');
       const state = params.get('state');
 
-      // 1. Silent Handling of OAuth return
       if (code) {
-        // Clean URL immediately so refresh doesn't trigger exchange again
         window.history.replaceState({}, document.title, window.location.pathname);
         const success = await handleAuthExchange(code, state);
         if (!success) {
@@ -136,7 +131,6 @@ const App: React.FC = () => {
         }
       }
 
-      // 2. Token Check
       const auth = authStore.loadAuth();
       if (!auth.tokens) {
         setAuthReady(true);
