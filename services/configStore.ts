@@ -1,3 +1,4 @@
+
 import { AppConfig, RuleSettings, CatalogConfig, RunOption } from '../types';
 import { DEFAULT_RULES, PODCAST_OPTIONS } from '../constants';
 import { apiLogger } from './apiLogger';
@@ -10,6 +11,12 @@ const LEGACY_KEYS = {
   PODCAST_PREFIX: 'spotify_buddy_id_',
   CLIENT_ID: 'spotify.clientId.v1'
 };
+
+/**
+ * Sources the default Spotify Client ID from environment variables.
+ * In Netlify/Local Dev, this allows zero-config startup if variables are set.
+ */
+const envClientId = (typeof process !== 'undefined' && process.env?.SPOTIFY_CLIENT_ID) || '';
 
 const DEFAULT_CONFIG: AppConfig = {
   rules: DEFAULT_RULES,
@@ -24,7 +31,7 @@ const DEFAULT_CONFIG: AppConfig = {
     }
   },
   podcasts: PODCAST_OPTIONS,
-  spotifyClientId: '',
+  spotifyClientId: envClientId,
   version: 1
 };
 
@@ -54,9 +61,21 @@ class ConfigStore {
             }
           }
         };
+
+        /**
+         * BEHAVIOR: If the saved config is empty but we have an environment variable
+         * (e.g. newly deployed on Netlify with ENV set), prioritize the ENV variable.
+         */
+        if (!this.config.spotifyClientId && envClientId) {
+          this.config.spotifyClientId = envClientId;
+          apiLogger.logClick("ConfigStore: Auto-populated Client ID from SPOTIFY_CLIENT_ID env var.");
+        }
       } catch (e) {
         apiLogger.logError("ConfigStore: Failed to parse stored config.");
       }
+    } else {
+      // If no saved config, ensure we use the env client id
+      this.config.spotifyClientId = envClientId;
     }
 
     // Migration logic

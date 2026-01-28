@@ -1,19 +1,16 @@
+
 import { SpotifyAuth } from './spotifyAuth';
 import { SpotifyUser, SpotifyDevice } from '../types';
 import { apiLogger } from './apiLogger';
+import { toastService } from './toastService';
 
 export const SpotifyApi = {
-  /**
-   * request - Shared Spotify API fetcher.
-   * Handles token validation and error logging.
-   */
   request: async (endpoint: string, options: RequestInit = {}): Promise<any> => {
     const token = await SpotifyAuth.getValidAccessToken();
     
     if (!token) {
-      const msg = "Spotify access denied: Connect account in Settings.";
-      apiLogger.logError(msg);
-      throw new Error(msg);
+      // Silent failure during background check
+      throw new Error("No active session");
     }
 
     const url = `https://api.spotify.com/v1${endpoint}`;
@@ -27,14 +24,7 @@ export const SpotifyApi = {
       'Content-Type': 'application/json',
     };
 
-    let response: Response;
-    try {
-      response = await fetch(url, { ...options, headers });
-    } catch (fetchErr: any) {
-      apiLogger.logError(`Network Failure: ${fetchErr.message}`);
-      throw new Error("Unable to connect to Spotify. Check your internet.");
-    }
-
+    const response = await fetch(url, { ...options, headers });
     apiLogger.logResponse(method, url, response.status);
     
     if (response.status === 204) return null;
@@ -45,7 +35,9 @@ export const SpotifyApi = {
         const json = await response.json();
         errorMessage = json.error?.message || errorMessage;
       } catch (e) {}
-      
+
+      // Do NOT show toasts here automatically, 
+      // let the UI layer decide if the user needs to see it.
       const error: any = new Error(errorMessage);
       error.status = response.status;
       throw error;
@@ -54,9 +46,6 @@ export const SpotifyApi = {
     return response.json();
   },
 
-  /**
-   * safeRequest - Shared wrapper that returns a typed result instead of throwing.
-   */
   safeRequest: async <T>(endpoint: string, options: RequestInit = {}): Promise<{ data: T | null; error: string | null }> => {
     try {
       const data = await SpotifyApi.request(endpoint, options);

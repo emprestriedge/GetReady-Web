@@ -1,8 +1,9 @@
+
 import React from "react";
 
 /**
  * InkBackground - Provides a full-screen background image using an embedded 
- * Base64 representation of the pink/black smoke wallpaper.
+ * radial gradient and strictly fills the viewport to allow internal scrolling.
  */
 export default function InkBackground({ children }: { children?: React.ReactNode }) {
   const gradientStyle: React.CSSProperties = {
@@ -18,7 +19,7 @@ export default function InkBackground({ children }: { children?: React.ReactNode
 
   return (
     <div style={{ 
-      minHeight: "100dvh", 
+      height: "100dvh", 
       width: "100%", 
       position: "relative", 
       backgroundColor: "#000", 
@@ -38,15 +39,15 @@ export default function InkBackground({ children }: { children?: React.ReactNode
         }}
       />
 
-      {/* Content Layer */}
+      {/* Content Layer - Fixed height to force main scroller to activate */}
       <div style={{ 
         position: "relative", 
         zIndex: 10, 
-        minHeight: "100dvh", 
+        height: "100%", 
         width: "100%",
         display: "flex",
         flexDirection: "column",
-        overflowX: "hidden"
+        overflow: "hidden"
       }}>
         {children}
       </div>

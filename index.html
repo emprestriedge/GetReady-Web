@@ -1,8 +1,20 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GetReady">
+    <meta name="theme-color" content="#000000">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3669/3669986.png">
+    
     <title>GetReady</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -21,6 +33,7 @@
                     },
                     animation: {
                         'jelly-shimmer': 'highlightShimmer 5s ease-in-out infinite',
+                        'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
                     }
                 }
             }
@@ -36,33 +49,61 @@
             --palette-gold: #C5A04D;
             --palette-copper: #B7763D;
             --palette-emerald: #19A28E;
+            
+            /* Safe area support for iOS */
+            --safe-area-inset-top: env(safe-area-inset-top, 0px);
+            --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
 
         html, body {
-            overflow-x: hidden;
+            overflow: hidden;
             width: 100%;
-            position: relative;
-            /* Prevents horizontal "rubber-banding" on mobile */
-            touch-action: pan-y;
-            -webkit-overflow-scrolling: touch;
+            height: 100%;
+            position: fixed; /* Prevents "rubber-banding" of the whole body on iOS */
+            overscroll-behavior: none;
+            margin: 0;
+            padding: 0;
+            background-color: #000;
         }
 
         body {
-            font-family: -apple-system, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Inter", sans-serif;
+            font-family: -apple-system, "SF Pro Rounded", "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Inter", sans-serif;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-            -webkit-tap-highlight-color: transparent;
-            background-color: #000;
             color: #fff;
-            margin: 0;
-            padding: 0;
             letter-spacing: -0.015em;
+            /* touch-action: none removed to allow scrolling on internal containers */
         }
 
         @keyframes highlightShimmer {
             0%, 100% { transform: translate(-2px, -1px) rotate(-5deg); opacity: 0.5; }
             50% { transform: translate(3px, 2px) rotate(-4deg); opacity: 0.8; }
         }
+
+        @keyframes pulseSoft {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .stagger-entry {
+            animation: slideUpFade 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+            opacity: 0;
+        }
+        .stagger-1 { animation-delay: 0.05s; }
+        .stagger-2 { animation-delay: 0.1s; }
+        .stagger-3 { animation-delay: 0.15s; }
+        .stagger-4 { animation-delay: 0.2s; }
+        .stagger-5 { animation-delay: 0.25s; }
 
         .font-mango {
             font-family: 'Bodoni Moda', serif;
@@ -72,8 +113,7 @@
         }
 
         .font-gurmukhi {
-            /* Fallback stack for iOS: SF Pro Rounded provides the geometric weight of Gurmukhi MN */
-            font-family: "Gurmukhi MN", "SF Pro Rounded", "SF Pro Display", -apple-system, sans-serif;
+            font-family: "Gurmukhi MN", "GurmukhiMN", "SF Pro Rounded", "Outfit", sans-serif;
             font-weight: 800;
             letter-spacing: -0.02em;
         }
@@ -104,11 +144,12 @@
         }
 
         #root {
-            min-height: 100vh;
-            width: 100%;
+            height: 100dvh;
+            width: 100vw;
             display: flex;
             flex-direction: column;
-            overflow-x: hidden;
+            overflow: hidden;
+            position: relative;
         }
         
         .glass-panel-gold {
@@ -116,11 +157,14 @@
             backdrop-filter: blur(40px);
             -webkit-backdrop-filter: blur(40px);
             border: 0.5px solid rgba(197, 160, 77, 0.15);
+            box-shadow: inset 0 0.5px 0 0 rgba(255, 255, 255, 0.1);
         }
 
-        .ios-title {
-            letter-spacing: -0.04em;
+        .header-text-responsive {
+            font-size: clamp(4rem, 15vw, 6rem);
             line-height: 0.9;
+            max-width: 100%;
+            overflow-wrap: break-word;
         }
 
         .ios-caption {
@@ -162,17 +206,10 @@
             transform: translateY(0);
         }
 
-        @media (prefers-reduced-motion: reduce) {
-            .label-transition {
-                transition: none !important;
-                transform: none !important;
-            }
-            .label-hidden {
-                opacity: 0 !important;
-            }
-            .label-visible {
-                opacity: 1 !important;
-            }
+        /* Prevent scroll text selection */
+        .no-select {
+            -webkit-user-select: none;
+            user-select: none;
         }
     </style>
 <script type="importmap">

@@ -22,7 +22,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
   const [saving, setSaving] = useState(false);
 
   const handleOpenDetail = (record: RunRecord) => {
-    Haptics.medium();
+    Haptics.light();
     setViewingRecord(record);
   };
 
@@ -36,7 +36,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
 
   const handleDeleteRecord = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    Haptics.impact();
+    Haptics.medium();
     const saved = localStorage.getItem('spotify_buddy_history');
     if (saved) {
       const list: RunRecord[] = JSON.parse(saved);
@@ -127,12 +127,12 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
 
   return (
     <div className="p-4 animate-in fade-in duration-500 pb-32">
-      <header className="mt-14 mb-10 px-2 flex justify-between items-end">
-        <h1 className="text-8xl font-mango header-ombre leading-none">History</h1>
+      <header className="mt-14 mb-10 px-2 flex justify-between items-end stagger-entry stagger-1">
+        <h1 className="header-text-responsive font-mango header-ombre leading-none">History</h1>
         {history.length > 0 && (
           <button 
             onClick={handleClearHistory}
-            className="mb-1 text-[9px] font-black uppercase tracking-widest text-zinc-600 hover:text-red-500 transition-colors bg-white/5 px-3 py-2 rounded-full border border-white/5"
+            className="mb-1 text-[9px] font-black uppercase tracking-widest text-zinc-600 hover:text-red-500 transition-colors bg-white/5 px-3 py-2 rounded-full border border-white/5 active:scale-95"
           >
             Clear All
           </button>
@@ -140,21 +140,21 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
       </header>
 
       {history.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 text-zinc-600 text-center gap-4">
-          <div className="w-24 h-24 bg-zinc-900/50 rounded-full flex items-center justify-center mb-2 border border-white/5 shadow-inner">
-             <svg className="w-12 h-12 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <div className="flex flex-col items-center justify-center py-24 text-zinc-600 text-center gap-6 stagger-entry stagger-2">
+          <div className="w-32 h-32 bg-zinc-900/50 rounded-full flex items-center justify-center mb-2 border border-white/5 shadow-inner">
+             <svg className="w-16 h-16 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
              </svg>
           </div>
-          <div className="flex flex-col gap-1 items-center">
-            <p className="text-4xl font-gurmukhi text-[#A9E8DF] drop-shadow-sm">No logs yet.</p>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-700 mt-2">Initialize a sync to begin</p>
+          <div className="flex flex-col gap-2 items-center">
+            <p className="text-4xl font-gurmukhi text-[#A9E8DF] drop-shadow-sm">No Syncs Yet.</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-700 mt-2 px-8 leading-relaxed">Your generated mixes and deployment logs will appear here.</p>
           </div>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {history.map(record => (
-            <div key={record.id} className="relative">
+          {history.map((record, idx) => (
+            <div key={record.id} className={`relative stagger-entry stagger-${Math.min(idx + 1, 5)}`}>
               <button 
                 onClick={() => handleOpenDetail(record)}
                 onContextMenu={(e) => { e.preventDefault(); Haptics.light(); setActiveActionsId(activeActionsId === record.id ? null : record.id); }}
@@ -175,7 +175,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
                   </div>
                   <button 
                     onClick={(e) => { e.stopPropagation(); Haptics.light(); setActiveActionsId(activeActionsId === record.id ? null : record.id); }}
-                    className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-zinc-600 hover:text-white transition-colors shrink-0"
+                    className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-zinc-600 hover:text-white transition-colors shrink-0 active:scale-90"
                   >
                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
@@ -193,19 +193,19 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
 
                 {activeActionsId === record.id && (
                   <div className="absolute inset-y-0 right-0 w-48 bg-black/60 backdrop-blur-3xl border-l border-white/10 flex flex-col divide-y divide-white/5 animate-in slide-in-from-right duration-200 z-20">
-                    <button onClick={(e) => handlePlayOnDevice(record, e)} className="flex-1 flex items-center gap-3 px-6 text-[10px] font-black uppercase tracking-widest text-[#1DB954] hover:bg-white/5">
+                    <button onClick={(e) => handlePlayOnDevice(record, e)} className="flex-1 flex items-center gap-3 px-6 text-[10px] font-black uppercase tracking-widest text-[#1DB954] active:bg-white/10">
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                       Play
                     </button>
-                    <button onClick={(e) => handleSaveToSpotifyPrompt(record, e)} className="flex-1 flex items-center gap-3 px-6 text-[10px] font-black uppercase tracking-widest text-palette-teal hover:bg-white/5">
+                    <button onClick={(e) => handleSaveToSpotifyPrompt(record, e)} className="flex-1 flex items-center gap-3 px-6 text-[10px] font-black uppercase tracking-widest text-palette-teal active:bg-white/10">
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm-3 8v8l7-4-7-4z"/></svg>
                       Sync...
                     </button>
-                    <button onClick={(e) => handleDeleteRecord(record.id, e)} className="flex-1 flex items-center gap-3 px-6 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-white/5">
+                    <button onClick={(e) => handleDeleteRecord(record.id, e)} className="flex-1 flex items-center gap-3 px-6 text-[10px] font-black uppercase tracking-widest text-red-500 active:bg-white/10">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       Delete
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); setActiveActionsId(null); }} className="flex-1 flex items-center gap-3 px-6 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:bg-white/5">
+                    <button onClick={(e) => { e.stopPropagation(); setActiveActionsId(null); }} className="flex-1 flex items-center gap-3 px-6 text-[10px] font-black uppercase tracking-widest text-zinc-500 active:bg-white/10">
                       Close
                     </button>
                   </div>

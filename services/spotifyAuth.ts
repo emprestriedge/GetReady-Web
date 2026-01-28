@@ -1,8 +1,7 @@
+
 import { SpotifyTokensV1 } from './authStore';
 import { apiLogger } from './apiLogger';
 import { authStore } from './authStore';
-
-const GITHUB_REDIRECT_URI = 'https://emprestriedge.github.io/spotify-callback/callback.html';
 
 export interface AuthDiagnostic {
   debug: {
@@ -17,6 +16,7 @@ export interface AuthDiagnostic {
     tokenStorageKeyUsed: string;
     migratedFromKey: string | null;
     authReady: boolean;
+    currentRedirectUri: string;
   };
 }
 
@@ -35,17 +35,36 @@ export const SCOPES = [
 ].join(' ');
 
 let refreshRequestId = 0;
-let tokenFoundOnBoot = false;
 let refreshAttempted = false;
 let lastRefreshError: string | null = null;
 let tokenSource: 'storage' | 'fresh login' = 'storage';
 let authReady = false;
 
 export const SpotifyAuth = {
-  getClientId: () => authStore.loadAuth().clientId || '',
+  getClientId: () => {
+    const auth = authStore.loadAuth();
+    if (auth.clientId) return auth.clientId;
+    return '';
+  },
 
   setClientId: (id: string) => {
     authStore.saveClientId(id);
+  },
+
+  /**
+   * getRedirectUri - Returns the URI that MUST be whitelisted in Spotify Dashboard.
+   * Explicitly handles localhost vs production for reliable PWA behavior.
+   */
+  getRedirectUri: () => {
+    const hostname = window.location.hostname;
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
+    
+    if (isLocal) {
+      return `${window.location.origin}/callback.html`;
+    }
+    
+    // Force production URL for all other environments (Netlify, etc)
+    return 'https://getready3.netlify.app/callback.html';
   },
 
   generateRandomString: (length: number) => {
@@ -67,17 +86,25 @@ export const SpotifyAuth = {
       .replace(/=+$/, '');
   },
 
-  loginWithPopup: async () => {
+  /**
+   * login - Always uses a full page redirect. 
+   * This is the most reliable method for iOS Home Screen apps (standalone mode).
+   */
+  login: async () => {
     const clientId = SpotifyAuth.getClientId();
-    if (!clientId) throw new Error("Missing Spotify Client ID. Please set it in Settings.");
+    if (!clientId) {
+      throw new Error("Missing Spotify Client ID. Set it in Settings.");
+    }
 
     const codeVerifier = SpotifyAuth.generateRandomString(64);
     const hashed = await SpotifyAuth.sha256(codeVerifier);
     const codeChallenge = SpotifyAuth.base64urlencode(hashed);
     const state = SpotifyAuth.generateRandomString(16);
+    const redirectUri = SpotifyAuth.getRedirectUri();
 
-    sessionStorage.setItem('spotify_pkce_verifier', codeVerifier);
-    sessionStorage.setItem('spotify_auth_state', state);
+    // Use localStorage so it survives the PWA context switch
+    localStorage.setItem('spotify_pkce_verifier', codeVerifier);
+    localStorage.setItem('spotify_auth_state', state);
 
     const params = new URLSearchParams({
       response_type: 'code',
@@ -86,28 +113,29 @@ export const SpotifyAuth = {
       code_challenge_method: 'S256',
       code_challenge: codeChallenge,
       state: state,
-      redirect_uri: GITHUB_REDIRECT_URI,
+      redirect_uri: redirectUri,
     });
 
     const url = `https://accounts.spotify.com/authorize?${params.toString()}`;
-    const width = 500;
-    const height = 700;
-    const left = (window.innerWidth / 2) - (width / 2);
-    const top = (window.innerHeight / 2) - (height / 2);
-    
-    window.open(url, 'Spotify Login', `width=${width},height=${height},top=${top},left=${left}`);
+    apiLogger.logClick(`Auth: Full page redirect to Spotify`);
+    window.location.href = url;
   },
 
   exchangeCodeForToken: async (code: string, state: string | null): Promise<SpotifyTokensV1> => {
     const clientId = SpotifyAuth.getClientId();
-    const codeVerifier = sessionStorage.getItem('spotify_pkce_verifier');
-    const savedState = sessionStorage.getItem('spotify_auth_state');
+    const codeVerifier = localStorage.getItem('spotify_pkce_verifier');
+    const savedState = localStorage.getItem('spotify_auth_state');
 
+    // Security check
     if (state && savedState && state !== savedState) {
-      throw new Error("State mismatch error. Security check failed.");
+      throw new Error("Security check failed: State mismatch.");
     }
 
-    if (!codeVerifier) throw new Error("No code verifier found in session storage.");
+    if (!codeVerifier) {
+      throw new Error("Login failed: Security key missing. Try again.");
+    }
+
+    const redirectUri = SpotifyAuth.getRedirectUri();
 
     const response = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
@@ -116,13 +144,15 @@ export const SpotifyAuth = {
         client_id: clientId,
         grant_type: 'authorization_code',
         code: code,
-        redirect_uri: GITHUB_REDIRECT_URI,
+        redirect_uri: redirectUri,
         code_verifier: codeVerifier,
       }),
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error_description || "Token exchange failed");
+    if (!response.ok) {
+      throw new Error(data.error_description || "Token exchange failed");
+    }
 
     const tokens: SpotifyTokensV1 = {
       access_token: data.access_token,
@@ -132,27 +162,20 @@ export const SpotifyAuth = {
 
     tokenSource = 'fresh login';
     authStore.saveTokens(tokens);
-    apiLogger.logClick("refresh_success: Fresh Login");
+    
+    localStorage.removeItem('spotify_pkce_verifier');
+    localStorage.removeItem('spotify_auth_state');
+    
     return tokens;
   },
 
   getValidAccessToken: async (): Promise<string | null> => {
     const auth = authStore.loadAuth();
-    if (!auth.tokens) {
-      return null;
-    }
+    if (!auth.tokens) return null;
 
     const { access_token, refresh_token, expires_at } = auth.tokens;
+    if (Date.now() < expires_at - 60000) return access_token;
 
-    // Check if token is still valid (60s buffer)
-    if (Date.now() < expires_at - 60000) {
-      apiLogger.logClick("token_valid");
-      return access_token;
-    }
-
-    // Refresh needed
-    apiLogger.logClick("refresh_start");
-    refreshAttempted = true;
     const currentRequestId = ++refreshRequestId;
     
     try {
@@ -160,22 +183,17 @@ export const SpotifyAuth = {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          client_id: auth.clientId || '',
+          client_id: auth.clientId || SpotifyAuth.getClientId(),
           grant_type: 'refresh_token',
           refresh_token: refresh_token,
         }),
       });
 
       const data = await response.json();
-      
       if (currentRequestId !== refreshRequestId) return null;
 
       if (!response.ok) {
         lastRefreshError = data.error_description || `Status ${response.status}`;
-        apiLogger.logError(`refresh_fail: ${lastRefreshError}`);
-        // IMPORTANT: We do not clear authStore.tokens here. 
-        // This allows the UI to show "Disconnected" while keeping the refresh_token 
-        // for a manual retry or fixing transient network issues.
         return null;
       }
 
@@ -186,48 +204,37 @@ export const SpotifyAuth = {
       };
 
       authStore.saveTokens(newTokens);
-      apiLogger.logClick("refresh_success");
       return newTokens.access_token;
     } catch (e: any) {
       lastRefreshError = e.message;
-      apiLogger.logError(`refresh_fail: Network error ${e.message}`);
       return null;
     }
   },
 
   getDiagnosticInfo: async (): Promise<AuthDiagnostic> => {
     const auth = authStore.loadAuth();
-    const now = Date.now();
     const expiresAt = auth.tokens?.expires_at || 0;
-    const diff = expiresAt - now;
-    const expiresInMin = diff > 0 ? Math.round(diff / 60000) : 0;
-    const meta = authStore.getMetadata();
+    const now = Date.now();
+    const expiresInMin = expiresAt > now ? Math.round((expiresAt - now) / 60000) : 0;
 
     return {
       debug: {
         connected: auth.connected,
-        clientId: auth.clientId,
+        clientId: auth.clientId || SpotifyAuth.getClientId(),
         expiresAt: expiresAt ? new Date(expiresAt).toLocaleString() : null,
         tokenFoundOnBoot: !!auth.tokens,
         refreshAttempted,
         lastRefreshError,
         tokenSource,
-        expiresInMin: auth.tokens ? expiresInMin : null,
-        tokenStorageKeyUsed: meta.tokenStorageKeyUsed,
+        expiresInMin,
+        tokenStorageKeyUsed: authStore.getMetadata().tokenStorageKeyUsed,
         migratedFromKey: auth.migratedFrom || null,
-        authReady
+        authReady,
+        currentRedirectUri: SpotifyAuth.getRedirectUri()
       }
     };
   },
 
-  setReady: (val: boolean) => {
-    authReady = val;
-  },
-
-  logout: () => {
-    apiLogger.logClick("Auth: Disconnecting session...");
-    refreshRequestId++;
-    authStore.clearAuth();
-    window.location.reload();
-  }
+  setReady: (val: boolean) => { authReady = val; },
+  logout: () => { authStore.clearAuth(); window.location.reload(); }
 };

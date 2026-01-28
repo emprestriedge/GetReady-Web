@@ -1,11 +1,29 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { RuleSettings, RunOption, SmartMixPlan, VibeType } from "../types";
 
 /**
- * getMixInsight - Kept for legacy run modes, but logic is simplified.
+ * getMixInsight - Uses Gemini to generate AI-powered insights for the music mix.
  */
 export const getMixInsight = async (option: RunOption, rules: RuleSettings): Promise<string> => {
-  return "Sync Engine operational. Composing multi-source catalog...";
+  try {
+    // Initialize Gemini API client inside the function to ensure up-to-date API key usage
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Provide a short, 1-sentence professional musicology insight for a user's playlist mix.
+        Mix Name: ${option.name}
+        Context: ${option.description}
+        Settings: Length=${rules.playlistLength} tracks, Energy=${rules.calmHype}, Exploration=${rules.discoverLevel}.
+        Insight:`,
+    });
+
+    // Directly access the .text property from GenerateContentResponse
+    return response.text || "Sync Engine operational. Composing multi-source catalog...";
+  } catch (error) {
+    console.error("Gemini Mix Insight failed:", error);
+    return "Sync Engine operational. Composing multi-source catalog...";
+  }
 };
 
 /**

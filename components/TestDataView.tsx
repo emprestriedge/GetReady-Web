@@ -165,7 +165,8 @@ const TestDataView: React.FC<TestDataViewProps> = ({ onBack }) => {
           <h2 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest ml-4 mb-3">Debug Actions</h2>
           <div className="grid grid-cols-2 gap-3">
              <ActionButton label="Refresh Logic" icon="🔄" onClick={fetchDiagnosticData} />
-             <ActionButton label="Force Popup" icon="🔌" onClick={() => SpotifyAuth.loginWithPopup()} />
+             {/* Fixed: SpotifyAuth.loginWithPopup() does not exist, using SpotifyAuth.login() which handles the redirect flow. */}
+             <ActionButton label="Force Link" icon="🔌" onClick={() => SpotifyAuth.login()} />
              <ActionButton label="Copy Bundle" icon="📦" onClick={copyDebugInfo} />
              <ActionButton label="Flush Buffer" icon="🧹" onClick={() => apiLogger.clear()} />
           </div>

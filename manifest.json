@@ -1,0 +1,19 @@
+
+{
+  "short_name": "GetReady",
+  "name": "GetReady | Spotify Sync Engine",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3669/3669986.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#000000",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#000000",
+  "description": "A high-performance Spotify playlist manager and podcast sync engine."
+}

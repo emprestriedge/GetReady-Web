@@ -17,7 +17,7 @@ type HomeViewMode = 'root' | 'music' | 'podcast';
  * PinkAsterisk - Shared SVG component for list bullet points
  */
 export const PinkAsterisk = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-palette-pink shrink-0 mr-3 mt-1">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-palette-pink shrink-0 mr-2 sm:mr-3 mt-1">
     <path d="M12 3V21M4.2 7.5L19.8 16.5M19.8 7.5L4.2 16.5" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
   </svg>
 );
@@ -39,7 +39,7 @@ const AnimatedLabel: React.FC<{ value: number }> = ({ value }) => {
 
   useEffect(() => {
     if (targetLabel !== displayLabel && !isTransitioning) {
-      Haptics.medium();
+      Haptics.light();
       setIsTransitioning(true);
       if (timerRef.current) window.clearTimeout(timerRef.current);
 
@@ -61,7 +61,6 @@ const AnimatedLabel: React.FC<{ value: number }> = ({ value }) => {
 const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
   const [viewMode, setViewMode] = useState<HomeViewMode>('root');
   const [vibe, setVibe] = useState<VibeType>(() => {
-     // Try to infer vibe from current rules on load
      if (rules.calmHype <= 0.2) return 'Zen';
      if (rules.calmHype >= 0.9) return 'LighteningMix';
      if (rules.discoverLevel >= 0.7) return 'Chaos';
@@ -73,7 +72,6 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // BEHAVIOR: Scroll to top on sub-navigation changes
   useEffect(() => {
     window.scrollTo(0, 0);
     const scroller = document.getElementById('main-content-scroller');
@@ -90,68 +88,44 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
     Haptics.impact();
     setVibe(v);
     
-    // Requirements: Presets define base vibe profile
     let energy = 0.5;
     let discovery = 0.3;
 
     switch (v) {
-      case 'Zen':
-        energy = 0.1;
-        discovery = 0.2;
-        break;
-      case 'Focus':
-        energy = 0.4;
-        discovery = 0.1;
-        break;
-      case 'Chaos':
-        energy = 0.75;
-        discovery = 0.85;
-        break;
-      case 'LighteningMix':
-        energy = 1.0;
-        discovery = 0.45;
-        break;
+      case 'Zen': energy = 0.1; discovery = 0.2; break;
+      case 'Focus': energy = 0.4; discovery = 0.1; break;
+      case 'Chaos': energy = 0.75; discovery = 0.85; break;
+      case 'LighteningMix': energy = 1.0; discovery = 0.45; break;
     }
 
-    setRules(prev => ({ 
-      ...prev, 
-      calmHype: energy, 
-      discoverLevel: discovery 
-    }));
+    setRules(prev => ({ ...prev, calmHype: energy, discoverLevel: discovery }));
   };
 
   const handleGenerateSmartMix = async () => {
-    Haptics.impact();
+    Haptics.medium();
     setLoading(true);
     try {
       const plan = await getSmartMixPlan(vibe, rules.discoverLevel, rules.calmHype, rules.playlistLength);
       setSmartPlan(plan);
       const vibeToOptionId: Record<VibeType, string> = {
-        'Chaos': 'chaos_mix',
-        'Zen': 'zen_mix',
-        'Focus': 'focus_mix',
-        'LighteningMix': 'lightening_mix'
+        'Chaos': 'chaos_mix', 'Zen': 'zen_mix', 'Focus': 'focus_mix', 'LighteningMix': 'lightening_mix'
       };
       const optionId = vibeToOptionId[vibe];
       const option = SMART_MIX_MODES.find(o => o.id === optionId);
       if (option) {
         Haptics.success();
-        setTimeout(() => {
-          onSelect(option);
-          setLoading(false);
-        }, 800);
+        setTimeout(() => { onSelect(option); setLoading(false); }, 800);
       } else {
         setLoading(false);
       }
     } catch (e) {
       Haptics.error();
-      console.error(e);
       setLoading(false);
     }
   };
 
   const navigateTo = (mode: HomeViewMode) => {
-    Haptics.medium();
+    Haptics.light();
     setViewMode(mode);
   };
 
@@ -162,13 +136,13 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
   );
 
   const renderRoot = () => (
-    <div className="flex flex-col gap-4 animate-ios px-4 pb-12">
-      <header className="mt-14 mb-4">
-        <h1 className="text-8xl font-mango header-ombre leading-none">Library</h1>
+    <div className="flex flex-col gap-4 px-4 pb-12 w-full max-w-full overflow-x-hidden">
+      <header className="mt-14 mb-4 stagger-entry stagger-1">
+        <h1 className="header-text-responsive font-mango header-ombre">Library</h1>
         <p className="ios-caption text-zinc-500 text-[9px] mt-3 ml-1">Daily Prep</p>
       </header>
 
-      <div className="flex flex-col gap-4 mb-6">
+      <div className="flex flex-col gap-4 mb-6 stagger-entry stagger-2">
         <CategoryCard 
           title="Music" description="Custom mixes from your top tracks."
           icon={<svg className="w-10 h-10 text-white opacity-100" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>}
@@ -183,7 +157,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
         />
       </div>
 
-      <div className="glass-panel-gold rounded-[40px] p-6 border-white/10 relative overflow-hidden group">
+      <div className="glass-panel-gold rounded-[40px] p-6 border-white/10 relative overflow-hidden group stagger-entry stagger-3">
         <div className="absolute top-0 right-0 p-4 opacity-10">
           <svg className="w-12 h-12 text-palette-pink" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71L12 2z"/></svg>
         </div>
@@ -194,12 +168,18 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
             <div className="grid grid-cols-4 gap-2 px-1">
               {(['Chaos', 'Zen', 'Focus', 'LighteningMix'] as VibeType[]).map((v) => (
                 <div key={v} className="flex items-center justify-center">
-                  <button onClick={() => setVibeProfile(v)} className={`relative w-[85%] aspect-square rounded-[22px] transition-all duration-300 active:scale-95 flex items-center justify-center ${vibe === v ? 'scale-105' : 'opacity-40 grayscale-[0.2] hover:opacity-80'}`}>
+                  <button onClick={() => setVibeProfile(v)} className={`relative w-[75%] aspect-square rounded-[22px] transition-all duration-300 active:scale-95 flex items-center justify-center ${vibe === v ? 'scale-110' : 'opacity-40 grayscale-[0.2]'}`}>
                     <div className={`absolute inset-0 bg-gradient-to-br from-[#19A28E] via-[#2DB9B1] to-[#40D9D0] rounded-[22px] shadow-lg ${vibe === v ? 'ring-2 ring-white/40' : ''}`} style={{ boxShadow: vibe === v ? '0 10px 20px -5px rgba(25, 162, 142, 0.6), inset 0 4px 10px rgba(255, 255, 255, 0.45)' : '0 4px 10px -2px rgba(25, 162, 142, 0.3)' }}>
                       <div className="absolute top-1 left-1.5 w-[80%] h-[30%] bg-gradient-to-b from-white/40 to-transparent rounded-[12px] blur-[0.5px] pointer-events-none" />
                     </div>
                     <div className="relative z-10 w-full h-full flex items-center justify-center overflow-hidden p-1">
-                      {v === 'LighteningMix' ? <LightningIcon className="w-10 h-10 text-black" /> : <span className="text-[13px] font-skia font-black uppercase tracking-tighter text-black italic transform active:scale-90 transition-transform px-1 truncate max-w-full">{v}</span>}
+                      {v === 'LighteningMix' ? (
+                        <LightningIcon className="w-11 h-11 text-black drop-shadow-sm" />
+                      ) : (
+                        <span className="text-[15px] font-skia font-black uppercase tracking-tighter text-black italic transform active:scale-90 transition-transform px-1 truncate max-w-full">
+                          {v}
+                        </span>
+                      )}
                     </div>
                   </button>
                 </div>
@@ -209,8 +189,8 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
           <div className="flex flex-col gap-4">
             <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">2. Fine Tuning</span>
             <div className="flex flex-col gap-5">
-              <div className="bg-zinc-900/40 p-5 rounded-[28px] border border-palette-teal/20">
-                <div className="flex flex-col gap-2">
+              <div className="bg-zinc-900/40 p-5 rounded-[28px] border border-palette-teal/20 relative overflow-hidden">
+                <div className="flex flex-col gap-2 relative z-10">
                   <div className="flex justify-between items-center px-1">
                     <span className="text-[9px] font-black text-palette-teal/60 uppercase tracking-widest">Energy Level</span>
                     <AnimatedLabel value={rules.calmHype} />
@@ -219,8 +199,8 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
                   <div className="flex justify-between px-1 mt-1 text-[8px] font-black text-zinc-700 uppercase tracking-tighter"><span>Relaxed</span><span>Hyper</span></div>
                 </div>
               </div>
-              <div className="bg-zinc-900/40 p-5 rounded-[28px] border border-palette-pink/20">
-                <div className="flex flex-col gap-2">
+              <div className="bg-zinc-900/40 p-5 rounded-[28px] border border-palette-pink/20 relative overflow-hidden">
+                <div className="flex flex-col gap-2 relative z-10">
                   <div className="flex justify-between items-center px-1">
                     <span className="text-[9px] font-black text-palette-pink/60 uppercase tracking-widest">Exploration</span>
                     <span className="text-[10px] font-black text-palette-pink uppercase tracking-widest">{Math.round(rules.discoverLevel * 100)}% New</span>
@@ -257,13 +237,13 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
 
     const title = isMusic ? 'Music' : 'Shows';
     return (
-      <div className="flex flex-col gap-6 animate-ios px-4">
-        <header className="mt-12 flex flex-col gap-2">
+      <div className="flex flex-col gap-6 px-4 w-full max-w-full overflow-x-hidden">
+        <header className="mt-12 flex flex-col gap-2 stagger-entry stagger-1">
           <button onClick={() => navigateTo('root')} className="text-palette-pink flex items-center gap-1 active:opacity-50 font-black text-xs uppercase tracking-widest"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M15 19l-7-7 7-7" /></svg><span className="font-garet font-bold">Library</span></button>
-          <h2 className="text-7xl font-mango header-ombre mt-2 leading-none">{title}</h2>
+          <h2 className="header-text-responsive font-mango header-ombre mt-2 leading-none">{title}</h2>
         </header>
-        <div className="glass-panel-gold rounded-[32px] overflow-hidden divide-y divide-white/5">
-          {options.map((option) => (
+        <div className="glass-panel-gold rounded-[32px] overflow-hidden divide-y divide-white/5 stagger-entry stagger-2">
+          {options.map((option, i) => (
             <OptionRow key={option.id} option={option} isMusic={isMusic} onClick={() => onSelect(option)} />
           ))}
         </div>
@@ -272,7 +252,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
   };
 
   return (
-    <div className="relative min-h-screen pb-24">
+    <div className="relative min-h-screen pb-24 w-full max-w-full overflow-x-hidden">
       {viewMode === 'root' && renderRoot()}
       {viewMode === 'music' && renderList(RunOptionType.MUSIC)}
       {viewMode === 'podcast' && renderList(RunOptionType.PODCAST)}
@@ -283,8 +263,8 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
 interface CategoryCardProps { title: string; description: string; icon: React.ReactNode; gradient: string; shadowColor: string; onClick: () => void; }
 const CategoryCard: React.FC<CategoryCardProps> = ({ title, description, icon, gradient, shadowColor, onClick }) => (
   <button 
-    onClick={() => { Haptics.medium(); onClick(); }} 
-    className="w-full text-left bg-palette-gold/5 backdrop-blur-3xl rounded-[38px] p-4 sm:p-6 ios-btn-active flex items-center gap-4 sm:gap-6 group border border-white/5 shadow-2xl relative overflow-hidden transition-all duration-300 active:scale-95 min-h-[120px]"
+    onClick={() => { Haptics.light(); onClick(); }} 
+    className="w-full text-left bg-palette-gold/5 backdrop-blur-3xl rounded-[38px] p-4 sm:p-6 ios-btn-active flex items-center gap-4 sm:gap-6 group border border-white/5 shadow-2xl relative overflow-hidden transition-all duration-300 active:scale-95 min-h-[110px]"
   >
     <div className="relative shrink-0">
       <div className={`w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br ${gradient} rounded-[28px] sm:rounded-[32px] flex items-center justify-center shadow-xl relative overflow-hidden transition-all duration-300 transform group-hover:scale-105`} style={{ boxShadow: `0 12px 25px -8px ${shadowColor}, inset 0 6px 15px rgba(255, 255, 255, 0.45), inset 0 -10px 25px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.15)` }}>
@@ -307,23 +287,30 @@ const OptionRow: React.FC<{ option: RunOption; onClick: () => void; isMusic?: bo
   
   return (
     <button 
-      onClick={() => isReady && onClick()} 
+      onClick={() => {
+        if (isReady) {
+          Haptics.light();
+          onClick();
+        } else {
+          Haptics.error();
+        }
+      }} 
       disabled={!isReady}
-      className={`w-full text-left px-6 py-6 transition-all flex items-center group relative active:scale-[0.98] ${isReady ? 'active:bg-white/10' : 'opacity-40 cursor-not-allowed grayscale'}`}
+      className={`w-full text-left px-4 sm:px-6 py-5 sm:py-6 transition-all flex items-center group relative active:scale-[0.98] ${isReady ? 'active:bg-white/10' : 'opacity-40 cursor-not-allowed grayscale'}`}
     >
       <PinkAsterisk />
-      <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex items-center gap-2">
-          <span className={`text-[23px] font-gurmukhi text-[#A9E8DF] group-active:text-palette-pink transition-colors truncate`}>
+      <div className="flex-1 flex flex-col min-w-0 pr-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`text-[21px] sm:text-[23px] font-gurmukhi text-[#A9E8DF] group-active:text-palette-pink transition-colors truncate max-w-[95%]`}>
             {option.name}
           </span>
           {!isReady && (
-            <span className="text-[8px] font-black text-red-500 uppercase tracking-widest border border-red-500/30 px-2 py-0.5 rounded bg-red-500/10">Needs setup in Dev Tools</span>
+            <span className="text-[7px] font-black text-red-500 uppercase tracking-widest border border-red-500/30 px-1.5 py-0.5 rounded bg-red-500/10 shrink-0 animate-pulse-soft">Needs Setup</span>
           )}
         </div>
-        <span className="text-[13px] text-zinc-500 font-medium line-clamp-1 pr-4 mt-0.5 font-garet">{option.description}</span>
+        <span className="text-[12px] sm:text-[13px] text-zinc-500 font-medium line-clamp-1 pr-4 mt-0.5 font-garet">{option.description}</span>
       </div>
-      {isReady && <svg className="w-5 h-5 text-zinc-700 group-active:text-palette-pink shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>}
+      {isReady && <svg className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-700 group-active:text-palette-pink shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>}
     </button>
   );
 };
