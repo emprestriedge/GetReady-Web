@@ -17,7 +17,7 @@ type HomeViewMode = 'root' | 'music' | 'podcast';
  * PinkAsterisk - Shared SVG component for list bullet points
  */
 export const PinkAsterisk = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-palette-pink shrink-0 mr-3 mt-1">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-palette-pink shrink-0 mr-2 sm:mr-3 mt-1">
     <path d="M12 3V21M4.2 7.5L19.8 16.5M19.8 7.5L4.2 16.5" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
   </svg>
 );
@@ -162,9 +162,9 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
   );
 
   const renderRoot = () => (
-    <div className="flex flex-col gap-4 animate-ios px-4 pb-12">
+    <div className="flex flex-col gap-4 animate-ios px-4 pb-12 w-full max-w-full overflow-x-hidden box-border">
       <header className="mt-14 mb-4">
-        <h1 className="text-8xl font-mango header-ombre leading-none">Library</h1>
+        <h1 className="header-text-responsive font-mango header-ombre">Library</h1>
         <p className="ios-caption text-zinc-500 text-[9px] mt-3 ml-1">Daily Prep</p>
       </header>
 
@@ -191,10 +191,10 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
         <div className="flex flex-col gap-8">
           <div className="flex flex-col gap-3">
             <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">1. Select Vibe Profile</span>
-            <div className="grid grid-cols-4 gap-2 px-1">
+            <div className="grid grid-cols-4 gap-3 px-1">
               {(['Chaos', 'Zen', 'Focus', 'LighteningMix'] as VibeType[]).map((v) => (
-                <div key={v} className="flex items-center justify-center">
-                  <button onClick={() => setVibeProfile(v)} className={`relative w-[85%] aspect-square rounded-[22px] transition-all duration-300 active:scale-95 flex items-center justify-center ${vibe === v ? 'scale-105' : 'opacity-40 grayscale-[0.2] hover:opacity-80'}`}>
+                <div key={v} className="flex items-center justify-center w-full">
+                  <button onClick={() => setVibeProfile(v)} className={`relative w-full aspect-square rounded-[22px] transition-all duration-300 active:scale-95 flex items-center justify-center ${vibe === v ? 'scale-105' : 'opacity-40 grayscale-[0.2] hover:opacity-80'}`}>
                     <div className={`absolute inset-0 bg-gradient-to-br from-[#19A28E] via-[#2DB9B1] to-[#40D9D0] rounded-[22px] shadow-lg ${vibe === v ? 'ring-2 ring-white/40' : ''}`} style={{ boxShadow: vibe === v ? '0 10px 20px -5px rgba(25, 162, 142, 0.6), inset 0 4px 10px rgba(255, 255, 255, 0.45)' : '0 4px 10px -2px rgba(25, 162, 142, 0.3)' }}>
                       <div className="absolute top-1 left-1.5 w-[80%] h-[30%] bg-gradient-to-b from-white/40 to-transparent rounded-[12px] blur-[0.5px] pointer-events-none" />
                     </div>
@@ -257,10 +257,10 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
 
     const title = isMusic ? 'Music' : 'Shows';
     return (
-      <div className="flex flex-col gap-6 animate-ios px-4">
+      <div className="flex flex-col gap-6 animate-ios px-4 w-full max-w-full overflow-x-hidden box-border">
         <header className="mt-12 flex flex-col gap-2">
           <button onClick={() => navigateTo('root')} className="text-palette-pink flex items-center gap-1 active:opacity-50 font-black text-xs uppercase tracking-widest"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M15 19l-7-7 7-7" /></svg><span className="font-garet font-bold">Library</span></button>
-          <h2 className="text-7xl font-mango header-ombre mt-2 leading-none">{title}</h2>
+          <h2 className="header-text-responsive font-mango header-ombre mt-2 leading-none">{title}</h2>
         </header>
         <div className="glass-panel-gold rounded-[32px] overflow-hidden divide-y divide-white/5">
           {options.map((option) => (
@@ -272,7 +272,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
   };
 
   return (
-    <div className="relative min-h-screen pb-24">
+    <div className="relative min-h-screen pb-24 w-full max-w-full overflow-x-hidden box-border">
       {viewMode === 'root' && renderRoot()}
       {viewMode === 'music' && renderList(RunOptionType.MUSIC)}
       {viewMode === 'podcast' && renderList(RunOptionType.PODCAST)}
@@ -309,21 +309,21 @@ const OptionRow: React.FC<{ option: RunOption; onClick: () => void; isMusic?: bo
     <button 
       onClick={() => isReady && onClick()} 
       disabled={!isReady}
-      className={`w-full text-left px-6 py-6 transition-all flex items-center group relative active:scale-[0.98] ${isReady ? 'active:bg-white/10' : 'opacity-40 cursor-not-allowed grayscale'}`}
+      className={`w-full text-left px-4 sm:px-6 py-5 sm:py-6 transition-all flex items-center group relative active:scale-[0.98] ${isReady ? 'active:bg-white/10' : 'opacity-40 cursor-not-allowed grayscale'}`}
     >
       <PinkAsterisk />
-      <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex items-center gap-2">
-          <span className={`text-[23px] font-gurmukhi text-[#A9E8DF] group-active:text-palette-pink transition-colors truncate`}>
+      <div className="flex-1 flex flex-col min-w-0 pr-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`text-[20px] sm:text-[23px] font-gurmukhi text-[#A9E8DF] group-active:text-palette-pink transition-colors truncate max-w-[95%]`}>
             {option.name}
           </span>
           {!isReady && (
-            <span className="text-[8px] font-black text-red-500 uppercase tracking-widest border border-red-500/30 px-2 py-0.5 rounded bg-red-500/10">Needs setup in Dev Tools</span>
+            <span className="text-[7px] font-black text-red-500 uppercase tracking-widest border border-red-500/30 px-1.5 py-0.5 rounded bg-red-500/10 shrink-0">Needs Setup</span>
           )}
         </div>
-        <span className="text-[13px] text-zinc-500 font-medium line-clamp-1 pr-4 mt-0.5 font-garet">{option.description}</span>
+        <span className="text-[12px] sm:text-[13px] text-zinc-500 font-medium line-clamp-1 pr-4 mt-0.5 font-garet">{option.description}</span>
       </div>
-      {isReady && <svg className="w-5 h-5 text-zinc-700 group-active:text-palette-pink shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>}
+      {isReady && <svg className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-700 group-active:text-palette-pink shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>}
     </button>
   );
 };

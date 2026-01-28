@@ -38,24 +38,30 @@
             --palette-emerald: #19A28E;
         }
 
+        *, *::before, *::after {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
         html, body {
             overflow-x: hidden;
             width: 100%;
+            height: 100%;
             position: relative;
-            /* Prevents horizontal "rubber-banding" on mobile */
+            /* Prevent horizontal bouncing and scrolling */
+            overscroll-behavior-x: none;
             touch-action: pan-y;
             -webkit-overflow-scrolling: touch;
+            margin: 0;
+            padding: 0;
         }
 
         body {
             font-family: -apple-system, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Inter", sans-serif;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-            -webkit-tap-highlight-color: transparent;
             background-color: #000;
             color: #fff;
-            margin: 0;
-            padding: 0;
             letter-spacing: -0.015em;
         }
 
@@ -72,8 +78,8 @@
         }
 
         .font-gurmukhi {
-            /* Fallback stack for iOS: SF Pro Rounded provides the geometric weight of Gurmukhi MN */
-            font-family: "Gurmukhi MN", "SF Pro Rounded", "SF Pro Display", -apple-system, sans-serif;
+            /* Prioritize the system font string, then geometric fallbacks */
+            font-family: "Gurmukhi MN", "GurmukhiMN", "Outfit", "SF Pro Rounded", sans-serif;
             font-weight: 800;
             letter-spacing: -0.02em;
         }
@@ -109,6 +115,7 @@
             display: flex;
             flex-direction: column;
             overflow-x: hidden;
+            max-width: 100%;
         }
         
         .glass-panel-gold {
@@ -118,8 +125,9 @@
             border: 0.5px solid rgba(197, 160, 77, 0.15);
         }
 
-        .ios-title {
-            letter-spacing: -0.04em;
+        /* Large headers often cause horizontal wobble; clamp them to prevent overflow */
+        .header-text-responsive {
+            font-size: clamp(4rem, 18vw, 6rem);
             line-height: 0.9;
         }
 
