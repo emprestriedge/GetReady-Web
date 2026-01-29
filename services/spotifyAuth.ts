@@ -1,4 +1,3 @@
-
 import { SpotifyTokensV1 } from './authStore';
 import { apiLogger } from './apiLogger';
 import { authStore } from './authStore';
@@ -52,12 +51,11 @@ export const SpotifyAuth = {
   },
 
   /**
-   * getRedirectUri - Returns the root origin for PWA compatibility.
-   * NOTE: This URI must be EXACTLY whitelisted in the Spotify Developer Dashboard.
+   * getRedirectUri - Returns the STRICT hardcoded URI for production.
+   * This must match EXACTLY what is entered in the Spotify Developer Dashboard.
    */
   getRedirectUri: () => {
-    // We append a trailing slash to ensure it matches common Spotify Dashboard patterns
-    return window.location.origin + '/';
+    return 'https://getready3.netlify.app/';
   },
 
   generateRandomString: (length: number) => {
