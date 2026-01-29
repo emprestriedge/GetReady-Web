@@ -81,7 +81,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
 
   return (
     <div className="p-4 animate-in fade-in duration-500 pb-32 w-full max-w-full overflow-x-hidden box-border">
-      <header className="mt-14 mb-10 pl-10 pr-4">
+      <header className="mt-14 mb-10 pl-14 pr-4">
         <h1 className="header-text-responsive font-mango header-ombre">Settings</h1>
       </header>
 
