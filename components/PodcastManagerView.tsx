@@ -121,7 +121,7 @@ const PodcastManagerView: React.FC<PodcastManagerViewProps> = ({ onBack }) => {
 
   return (
     <div className="p-4 animate-in slide-in-from-right duration-300 pb-32">
-      <header className="mt-14 mb-8 flex flex-col gap-2 px-2">
+      <header className="mb-8 flex flex-col gap-2 px-2">
         <button onClick={onBack} className="text-palette-pink flex items-center gap-1 font-black text-xs uppercase tracking-widest active:opacity-50">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M15 19l-7-7 7-7" />

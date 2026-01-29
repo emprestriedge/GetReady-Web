@@ -28,7 +28,6 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
   const [metadata, setMetadata] = useState<Record<string, ResourceMetadata | null>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   
-  // Internal view state
   const [showPasteId, setShowPasteId] = useState<string | null>(null);
   const [idInput, setIdInput] = useState("");
   const [showPickerFor, setShowPickerFor] = useState<string | null>(null);
@@ -45,7 +44,6 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
   ];
 
   useEffect(() => {
-    // Verify linked resources on load
     coreSlots.forEach(slot => {
       const id = config[slot.key as keyof CatalogConfig];
       if (typeof id === 'string' && id !== 'null' && id) verifyId(slot.key, id, slot.type);
@@ -287,7 +285,7 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
 
   return (
     <div className="p-4 animate-in slide-in-from-right duration-300 pb-32">
-      <header className="mt-14 mb-8 flex flex-col gap-2 px-2">
+      <header className="mb-8 flex flex-col gap-2 px-2">
         <button onClick={onBack} className="text-palette-pink flex items-center gap-1 font-black text-xs uppercase tracking-widest active:opacity-50">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M15 19l-7-7 7-7" />
@@ -308,7 +306,6 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
       </header>
 
       <div className="flex flex-col gap-12">
-        {/* Navigation Section */}
         <section>
           <h2 className="text-[11px] font-black text-zinc-600 uppercase tracking-[0.2em] ml-5 mb-3">Tool Catalog</h2>
           <div className="glass-panel-gold rounded-[40px] overflow-hidden divide-y divide-white/5 border border-white/5">
@@ -369,7 +366,6 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
         </section>
       </div>
 
-      {/* Picker Modal */}
       {showPickerFor && (
         <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowPickerFor(null)}>
           <div className="bg-zinc-900 border border-white/10 rounded-[40px] w-full max-w-md h-[80vh] flex flex-col shadow-2xl animate-in zoom-in duration-300 overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -423,7 +419,6 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
         </div>
       )}
 
-      {/* Paste ID Modal */}
       {showPasteId && (
         <div className="fixed inset-0 z-[350] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300">
            <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-md flex flex-col gap-6 shadow-2xl" onClick={e => e.stopPropagation()}>

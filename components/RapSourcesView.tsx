@@ -105,7 +105,6 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
       type = 'album';
       id = urlInput.split('/album/')[1]?.split('?')[0];
     } else if (!urlInput.includes('/')) {
-        // Assume raw ID
         type = 'playlist';
         id = urlInput;
     }
@@ -132,7 +131,7 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
 
   return (
     <div className="p-4 animate-in slide-in-from-right duration-300 pb-32">
-      <header className="mt-14 mb-8 flex flex-col gap-2 px-2">
+      <header className="mb-8 flex flex-col gap-2 px-2">
         <button 
           onClick={onBack} 
           className="text-palette-pink flex items-center gap-1 font-black text-xs uppercase tracking-widest active:opacity-50"
@@ -158,7 +157,7 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
                 {refreshing ? (
                     <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 )}
                 <span className="text-[11px] uppercase tracking-widest">{refreshing ? 'Scanning Library...' : 'Auto-Match From Library'}</span>
             </button>
@@ -225,7 +224,6 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
         </div>
       </div>
 
-      {/* Manual Picker Modal */}
       {showPickerFor && (
         <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowPickerFor(null)}>
           <div className="bg-zinc-900 border border-white/10 rounded-[40px] w-full max-w-md h-[80vh] flex flex-col shadow-2xl animate-in zoom-in duration-300 overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -289,7 +287,6 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
         </div>
       )}
 
-      {/* URL Link Modal */}
       {showUrlInputFor && (
         <div className="fixed inset-0 z-[250] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowUrlInputFor(null)}>
           <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-md flex flex-col gap-6 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>

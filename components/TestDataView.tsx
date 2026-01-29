@@ -131,7 +131,7 @@ const TestDataView: React.FC<TestDataViewProps> = ({ onBack }) => {
 
   return (
     <div className="p-4 animate-in slide-in-from-right duration-300 pb-32">
-      <header className="mt-14 mb-10 flex items-center justify-between px-2">
+      <header className="mb-10 flex items-center justify-between px-2">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="text-palette-pink font-bold active:scale-90 transition-transform">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -148,7 +148,6 @@ const TestDataView: React.FC<TestDataViewProps> = ({ onBack }) => {
       </header>
 
       <div className="flex flex-col gap-6">
-        {/* Persistence & Boot Diagnostics */}
         <section>
           <h2 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest ml-4 mb-3">Auth Persistence & Stability</h2>
           <div className="grid grid-cols-2 gap-4">
@@ -160,19 +159,16 @@ const TestDataView: React.FC<TestDataViewProps> = ({ onBack }) => {
           </div>
         </section>
 
-        {/* Diagnostic Actions Grid */}
         <section>
           <h2 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest ml-4 mb-3">Debug Actions</h2>
           <div className="grid grid-cols-2 gap-3">
              <ActionButton label="Refresh Logic" icon="🔄" onClick={fetchDiagnosticData} />
-             {/* Fixed: SpotifyAuth.loginWithPopup() does not exist, using SpotifyAuth.login() which handles the redirect flow. */}
              <ActionButton label="Force Link" icon="🔌" onClick={() => SpotifyAuth.login()} />
              <ActionButton label="Copy Bundle" icon="📦" onClick={copyDebugInfo} />
              <ActionButton label="Flush Buffer" icon="🧹" onClick={() => apiLogger.clear()} />
           </div>
         </section>
 
-        {/* Technical Log (Consolidated) */}
         <div className="bg-black/60 backdrop-blur-3xl rounded-[32px] border border-white/10 overflow-hidden flex flex-col h-[400px]">
           <div className="bg-white/5 px-6 py-4 border-b border-white/10 flex justify-between items-center shrink-0">
              <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Auth & Network Buffer ({logs.length})</span>

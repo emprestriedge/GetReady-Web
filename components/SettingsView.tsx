@@ -81,13 +81,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
 
   return (
     <div className="p-4 animate-in fade-in duration-500 pb-32 w-full max-w-full overflow-x-hidden box-border">
-      <header className="mt-14 mb-10 pl-14 pr-4">
+      <header className="mb-10 pl-14 pr-4">
         <h1 className="header-text-responsive font-mango header-ombre">Settings</h1>
       </header>
 
       <div className="flex flex-col gap-8 w-full max-w-full overflow-x-hidden">
         
-        {/* Spotify Connection Section */}
         <section className="w-full">
           <div className="flex justify-between items-center mb-3 ml-5 pr-5">
             <h2 className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.2em]">Spotify Connection</h2>
@@ -105,7 +104,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
               />
             </div>
 
-            {/* WHITELIST HELPER: Solves the redirect mismatch error */}
             {!spotifyUser && config.spotifyClientId && (
               <div className="bg-palette-pink/5 border border-palette-pink/20 rounded-2xl p-4 flex flex-col gap-2">
                 <span className="text-[9px] font-black text-palette-pink uppercase tracking-widest">⚠️ Connection Troubleshooting</span>
