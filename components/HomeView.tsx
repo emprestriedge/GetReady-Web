@@ -137,7 +137,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
 
   const renderRoot = () => (
     <div className="flex flex-col gap-4 px-4 pb-12 w-full max-w-full overflow-x-hidden">
-      <header className="mt-14 mb-4 pl-3 stagger-entry stagger-1">
+      <header className="mt-14 mb-4 pl-10 stagger-entry stagger-1">
         <h1 className="header-text-responsive font-mango header-ombre">Library</h1>
         <p className="ios-caption text-zinc-500 text-[9px] mt-3 ml-1">Daily Prep</p>
       </header>
@@ -165,18 +165,18 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
         <div className="flex flex-col gap-8">
           <div className="flex flex-col gap-3">
             <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">1. Select Vibe Profile</span>
-            <div className="grid grid-cols-4 gap-2 px-1">
+            <div className="grid grid-cols-4 gap-3 px-0.5">
               {(['Chaos', 'Zen', 'Focus', 'LighteningMix'] as VibeType[]).map((v) => (
                 <div key={v} className="flex items-center justify-center">
-                  <button onClick={() => setVibeProfile(v)} className={`relative w-[75%] aspect-square rounded-[22px] transition-all duration-300 active:scale-95 flex items-center justify-center ${vibe === v ? 'scale-110' : 'opacity-40 grayscale-[0.2]'}`}>
-                    <div className={`absolute inset-0 bg-gradient-to-br from-[#19A28E] via-[#2DB9B1] to-[#40D9D0] rounded-[22px] shadow-lg ${vibe === v ? 'ring-2 ring-white/40' : ''}`} style={{ boxShadow: vibe === v ? '0 10px 20px -5px rgba(25, 162, 142, 0.6), inset 0 4px 10px rgba(255, 255, 255, 0.45)' : '0 4px 10px -2px rgba(25, 162, 142, 0.3)' }}>
-                      <div className="absolute top-1 left-1.5 w-[80%] h-[30%] bg-gradient-to-b from-white/40 to-transparent rounded-[12px] blur-[0.5px] pointer-events-none" />
+                  <button onClick={() => setVibeProfile(v)} className={`relative w-[92%] aspect-square rounded-[24px] transition-all duration-300 active:scale-95 flex items-center justify-center ${vibe === v ? 'scale-110' : 'opacity-40 grayscale-[0.3]'}`}>
+                    <div className={`absolute inset-0 bg-gradient-to-br from-[#19A28E] via-[#2DB9B1] to-[#40D9D0] rounded-[24px] shadow-lg ${vibe === v ? 'ring-2 ring-white/50' : ''}`} style={{ boxShadow: vibe === v ? '0 12px 24px -6px rgba(25, 162, 142, 0.7), inset 0 5px 12px rgba(255, 255, 255, 0.5)' : '0 4px 10px -2px rgba(25, 162, 142, 0.3)' }}>
+                      <div className="absolute top-1 left-2 w-[80%] h-[35%] bg-gradient-to-b from-white/45 to-transparent rounded-[14px] blur-[0.6px] pointer-events-none" />
                     </div>
-                    <div className="relative z-10 w-full h-full flex items-center justify-center overflow-hidden p-1">
+                    <div className="relative z-10 w-full h-full flex items-center justify-center overflow-hidden p-1.5">
                       {v === 'LighteningMix' ? (
-                        <LightningIcon className="w-11 h-11 text-black drop-shadow-sm" />
+                        <LightningIcon className="w-12 h-12 text-black drop-shadow-[0_1px_2px_rgba(255,255,255,0.4)]" />
                       ) : (
-                        <span className="text-[15px] font-skia font-black uppercase tracking-tighter text-black italic transform active:scale-90 transition-transform px-1 truncate max-w-full">
+                        <span className="text-[13px] font-skia font-black uppercase tracking-tighter text-black italic transform active:scale-90 transition-transform px-1 truncate max-w-full text-center">
                           {v}
                         </span>
                       )}
@@ -189,24 +189,24 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
           <div className="flex flex-col gap-4">
             <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">2. Fine Tuning</span>
             <div className="flex flex-col gap-5">
-              <div className="bg-zinc-900/40 p-5 rounded-[28px] border border-palette-teal/20 relative overflow-hidden">
+              <div className="bg-zinc-900/40 px-3 py-5 rounded-[28px] border border-palette-teal/20 relative overflow-hidden">
                 <div className="flex flex-col gap-2 relative z-10">
-                  <div className="flex justify-between items-center px-1">
+                  <div className="flex justify-between items-center px-2">
                     <span className="text-[9px] font-black text-palette-teal/60 uppercase tracking-widest">Energy Level</span>
                     <AnimatedLabel value={rules.calmHype} />
                   </div>
                   <input type="range" min="0" max="1" step="0.01" value={rules.calmHype} onChange={(e) => setRules(prev => ({ ...prev, calmHype: parseFloat(e.target.value) }))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-palette-teal" />
-                  <div className="flex justify-between px-1 mt-1 text-[8px] font-black text-zinc-700 uppercase tracking-tighter"><span>Relaxed</span><span>Hyper</span></div>
+                  <div className="flex justify-between px-2 mt-1 text-[8px] font-black text-zinc-700 uppercase tracking-tighter"><span>Relaxed</span><span>Hyper</span></div>
                 </div>
               </div>
-              <div className="bg-zinc-900/40 p-5 rounded-[28px] border border-palette-pink/20 relative overflow-hidden">
+              <div className="bg-zinc-900/40 px-3 py-5 rounded-[28px] border border-palette-pink/20 relative overflow-hidden">
                 <div className="flex flex-col gap-2 relative z-10">
-                  <div className="flex justify-between items-center px-1">
+                  <div className="flex justify-between items-center px-2">
                     <span className="text-[9px] font-black text-palette-pink/60 uppercase tracking-widest">Exploration</span>
                     <span className="text-[10px] font-black text-palette-pink uppercase tracking-widest">{Math.round(rules.discoverLevel * 100)}% New</span>
                   </div>
                   <input type="range" min="0" max="1" step="0.05" value={rules.discoverLevel} onChange={(e) => setRules(prev => ({ ...prev, discoverLevel: parseFloat(e.target.value) }))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-palette-pink" />
-                  <div className="flex justify-between px-1 mt-1 text-[8px] font-black text-zinc-700 uppercase tracking-tighter"><span>Comfort</span><span>Discovery</span></div>
+                  <div className="flex justify-between px-2 mt-1 text-[8px] font-black text-zinc-700 uppercase tracking-tighter"><span>Comfort</span><span>Discovery</span></div>
                 </div>
               </div>
             </div>
@@ -238,7 +238,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
     const title = isMusic ? 'Music' : 'Shows';
     return (
       <div className="flex flex-col gap-6 px-4 w-full max-w-full overflow-x-hidden">
-        <header className="mt-12 flex flex-col gap-2 pl-3 stagger-entry stagger-1">
+        <header className="mt-12 flex flex-col gap-2 pl-10 stagger-entry stagger-1">
           <button onClick={() => navigateTo('root')} className="text-palette-pink flex items-center gap-1 active:opacity-50 font-black text-xs uppercase tracking-widest"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M15 19l-7-7 7-7" /></svg><span className="font-garet font-bold">Library</span></button>
           <h2 className="header-text-responsive font-mango header-ombre mt-2 leading-none">{title}</h2>
         </header>
