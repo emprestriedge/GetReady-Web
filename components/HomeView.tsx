@@ -165,26 +165,26 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
         <div className="flex flex-col gap-8">
           <div className="flex flex-col gap-3">
             <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">1. Select Vibe Profile</span>
-            <div className="grid grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-4 gap-3 px-5">
               {(['Chaos', 'Zen', 'Focus', 'LighteningMix'] as VibeType[]).map((v) => (
                 <div key={v} className="flex items-center justify-center">
                   <button 
                     onClick={() => setVibeProfile(v)} 
-                    className={`relative w-full aspect-square rounded-[32px] transition-all duration-300 active:scale-95 flex items-center justify-center ${vibe === v ? 'scale-105' : 'opacity-30 grayscale-[0.4]'}`}
+                    className={`relative w-full aspect-square rounded-[16px] transition-all duration-300 active:scale-95 flex items-center justify-center ${vibe === v ? 'scale-105 shadow-xl' : 'opacity-30 grayscale-[0.4]'}`}
                   >
                     <div 
-                      className={`absolute inset-0 bg-gradient-to-br from-[#19A28E] via-[#2DB9B1] to-[#40D9D0] rounded-[32px] shadow-lg ${vibe === v ? 'ring-2 ring-white/60 shadow-palette-teal/50' : ''}`} 
+                      className={`absolute inset-0 bg-gradient-to-br from-[#19A28E] via-[#2DB9B1] to-[#40D9D0] rounded-[16px] ${vibe === v ? 'ring-2 ring-white/60 shadow-palette-teal/50' : ''}`} 
                       style={{ 
-                        boxShadow: vibe === v ? '0 12px 28px -6px rgba(25, 162, 142, 0.8), inset 0 6px 16px rgba(255, 255, 255, 0.5)' : '0 4px 10px -2px rgba(25, 162, 142, 0.3)' 
+                        boxShadow: vibe === v ? '0 8px 24px -6px rgba(25, 162, 142, 0.6), inset 0 6px 16px rgba(255, 255, 255, 0.5)' : '0 2px 8px -2px rgba(25, 162, 142, 0.2)' 
                       }}
                     >
-                      <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-[24px] blur-[0.6px] pointer-events-none" />
+                      <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-[8px] blur-[0.6px] pointer-events-none" />
                     </div>
-                    <div className="relative z-10 w-full h-full flex items-center justify-center overflow-visible p-1.5">
+                    <div className="relative z-10 w-full h-full flex items-center justify-center overflow-visible p-1">
                       {v === 'LighteningMix' ? (
-                        <LightningIcon className="w-11 h-11 text-black drop-shadow-sm" />
+                        <LightningIcon className="w-8 h-8 text-black drop-shadow-sm" />
                       ) : (
-                        <span className="text-[12px] sm:text-[13px] font-black uppercase tracking-tighter text-black italic transform scale-x-[0.9] leading-none text-center px-0.5">
+                        <span className="text-[11px] font-black uppercase tracking-tight text-black italic transform scale-x-[0.95] leading-none text-center px-0.5">
                           {v === 'Chaos' ? 'CHAOS' : v === 'Zen' ? 'ZEN' : 'FOCUS'}
                         </span>
                       )}
@@ -226,7 +226,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
           <button onClick={handleGenerateSmartMix} disabled={loading} className="w-full relative overflow-hidden bg-gradient-to-br from-[#FF007A] via-[#FF1A8B] to-[#FF4D9F] py-5 rounded-[26px] flex items-center justify-center gap-3 active:scale-[0.98] transition-all border border-white/15 shadow-xl shadow-palette-pink/30">
             <div className="absolute top-1 left-2 w-[90%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
             <div className="relative z-10 flex items-center gap-3">
-              {loading ? ( <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" /> ) : ( <LightningIcon className="w-8 h-8 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" /> )}
+              {loading ? ( <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" /> ) : ( <LightningIcon className="w-7 h-7 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" /> )}
               <span className="text-[14px] font-black uppercase tracking-[0.2em] text-white">Generate Mix</span>
             </div>
           </button>
