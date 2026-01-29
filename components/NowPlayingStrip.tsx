@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { SpotifyApi } from '../services/spotifyApi';
 import { spotifyPlayback } from '../services/spotifyPlaybackService';
@@ -74,7 +73,7 @@ const NowPlayingStrip: React.FC = () => {
   return (
     <div 
       className="fixed left-4 right-4 z-[60] animate-in slide-in-from-bottom-4 duration-500"
-      style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 94px)' }}
+      style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 78px)' }}
     >
       <div className="bg-black/70 backdrop-blur-3xl border border-white/10 rounded-[28px] overflow-hidden flex flex-col shadow-2xl">
         <div className="w-full h-[2px] bg-white/5">
