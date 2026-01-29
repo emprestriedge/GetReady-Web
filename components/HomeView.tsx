@@ -137,7 +137,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
 
   const renderRoot = () => (
     <div className="flex flex-col gap-4 px-4 pb-12 w-full max-w-full overflow-x-hidden">
-      <header className="mt-14 mb-4 stagger-entry stagger-1">
+      <header className="mt-14 mb-4 pl-3 stagger-entry stagger-1">
         <h1 className="header-text-responsive font-mango header-ombre">Library</h1>
         <p className="ios-caption text-zinc-500 text-[9px] mt-3 ml-1">Daily Prep</p>
       </header>
@@ -238,7 +238,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
     const title = isMusic ? 'Music' : 'Shows';
     return (
       <div className="flex flex-col gap-6 px-4 w-full max-w-full overflow-x-hidden">
-        <header className="mt-12 flex flex-col gap-2 stagger-entry stagger-1">
+        <header className="mt-12 flex flex-col gap-2 pl-3 stagger-entry stagger-1">
           <button onClick={() => navigateTo('root')} className="text-palette-pink flex items-center gap-1 active:opacity-50 font-black text-xs uppercase tracking-widest"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M15 19l-7-7 7-7" /></svg><span className="font-garet font-bold">Library</span></button>
           <h2 className="header-text-responsive font-mango header-ombre mt-2 leading-none">{title}</h2>
         </header>

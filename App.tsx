@@ -27,13 +27,15 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix: Use the imported Component class directly and initialize state as a class property to avoid constructor typing issues.
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Move state initialization to a class property for clearer TS typing.
-  state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
-  };
+// Fixed ErrorBoundary to correctly inherit props from React.Component by adding a constructor and ensuring valid return type for render
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
     const normalized = error instanceof Error 
@@ -47,7 +49,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
-    // Fix: access state properties through the correctly inherited Component class.
     if (this.state.hasError) {
       return (
         <div className="fixed inset-0 bg-black flex items-center justify-center p-8 z-[999]">
@@ -59,8 +60,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Fix: access props properties through the correctly inherited Component class.
-    return this.props.children;
+    return this.props.children || null;
   }
 }
 
@@ -123,9 +123,7 @@ const App: React.FC = () => {
       const code = params.get('code');
       const state = params.get('state');
 
-      // 1. Silent Handling of OAuth return
       if (code) {
-        // Clean URL immediately so refresh doesn't trigger exchange again
         window.history.replaceState({}, document.title, window.location.pathname);
         const success = await handleAuthExchange(code, state);
         if (!success) {
@@ -134,7 +132,6 @@ const App: React.FC = () => {
         }
       }
 
-      // 2. Token Check
       const auth = authStore.loadAuth();
       if (!auth.tokens) {
         setAuthReady(true);
@@ -171,11 +168,13 @@ const App: React.FC = () => {
     const newRecord: RunRecord = {
       id: Math.random().toString(36).substr(2, 9),
       timestamp: new Date().toLocaleString(),
-      optionName: string,
+      optionName: result.optionName,
       rulesSnapshot: { ...config.rules },
       result: result
     };
-    setHistory(prev => [newRecord, ...prev]);
+    const updatedHistory = [newRecord, ...history];
+    setHistory(updatedHistory);
+    localStorage.setItem('spotify_buddy_history', JSON.stringify(updatedHistory));
   };
 
   return (

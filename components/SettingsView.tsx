@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { RuleSettings, DataSourceType, SpotifyUser, AppConfig } from '../types';
 import { BlockStore } from '../services/blockStore';
@@ -82,7 +81,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
 
   return (
     <div className="p-4 animate-in fade-in duration-500 pb-32 w-full max-w-full overflow-x-hidden box-border">
-      <header className="mt-14 mb-10 px-2">
+      <header className="mt-14 mb-10 pl-6 pr-2">
         <h1 className="header-text-responsive font-mango header-ombre">Settings</h1>
       </header>
 
