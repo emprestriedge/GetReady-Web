@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import { TabType, RuleSettings, RunOption, RunRecord, SpotifyUser, RunResult, AppConfig } from './types';
 import HomeView from './components/HomeView';
@@ -27,10 +28,16 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fixed: Explicitly extend React.Component to ensure 'state' and 'props' properties are correctly typed.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix ErrorBoundary component to properly extend React.Component with props and state types
+// Using Component from named imports and explicitly declaring state/props to satisfy compiler
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Explicitly defining state and props to resolve TS visibility issues in certain environments
+  public state: ErrorBoundaryState;
+  public props: ErrorBoundaryProps;
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    // Explicitly initialize state to satisfy TypeScript property existence checks
     this.state = {
       hasError: false,
       error: null
@@ -49,6 +56,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   render() {
+    // Access state via this.state; inheritance now correctly recognized by TS
     if (this.state.hasError) {
       return (
         <div className="fixed inset-0 bg-black flex items-center justify-center p-8 z-[999]">
@@ -60,6 +68,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
+    // Access children from props
     return this.props.children || null;
   }
 }
@@ -187,7 +196,7 @@ const App: React.FC = () => {
             className="flex-1 overflow-y-auto bg-transparent scroll-smooth -webkit-overflow-scrolling-touch"
             style={{ 
               paddingTop: 'env(safe-area-inset-top, 0px)',
-              paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 68px)',
+              paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 40px)',
               height: '100%' 
             }}
           >
@@ -224,10 +233,10 @@ const App: React.FC = () => {
           {authReady && <NowPlayingStrip />}
 
           {authReady && !selectedOption && (authStatus !== 'exchanging' && authStatus !== 'waiting') && (
-            <nav className="fixed bottom-0 left-0 right-0 bg-black/70 backdrop-blur-3xl border-t border-white/10 flex justify-around items-center z-50 px-8" style={{ height: 'calc(env(safe-area-inset-bottom, 0px) + 50px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-              <TabButton label="Home" isActive={activeTab === 'Home'} onClick={() => setActiveTab('Home')} icon={<svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>} />
-              <TabButton label="Logs" isActive={activeTab === 'History'} onClick={() => setActiveTab('History')} icon={<svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>} />
-              <TabButton label="Config" isActive={activeTab === 'Settings'} onClick={() => setActiveTab('Settings')} icon={<svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38.103.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6-1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>} />
+            <nav className="fixed bottom-0 left-0 right-0 bg-black/70 backdrop-blur-3xl border-t border-white/10 flex justify-around items-start z-50 px-8 pt-2" style={{ height: 'calc(env(safe-area-inset-bottom, 0px) + 24px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+              <TabButton label="Home" isActive={activeTab === 'Home'} onClick={() => setActiveTab('Home')} icon={<svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>} />
+              <TabButton label="Logs" isActive={activeTab === 'History'} onClick={() => setActiveTab('History')} icon={<svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>} />
+              <TabButton label="Config" isActive={activeTab === 'Settings'} onClick={() => setActiveTab('Settings')} icon={<svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38.103.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6-1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>} />
             </nav>
           )}
         </div>
@@ -239,7 +248,7 @@ const App: React.FC = () => {
 const TabButton: React.FC<{ label: string; isActive: boolean; onClick: () => void; icon: React.ReactNode; }> = ({ label, isActive, onClick, icon }) => (
   <button onClick={onClick} className={`flex flex-col items-center gap-0.5 transition-all transform active:scale-90 ${isActive ? 'text-palette-pink scale-110' : 'text-zinc-600 opacity-60'}`}>
     {icon}
-    <span className={`text-[8px] font-black uppercase tracking-[0.2em] ${isActive ? 'text-palette-pink' : 'text-zinc-600'}`}>{label}</span>
+    <span className={`text-[6px] font-black uppercase tracking-[0.2em] ${isActive ? 'text-palette-pink' : 'text-zinc-600'}`}>{label}</span>
   </button>
 );
 

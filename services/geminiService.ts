@@ -1,5 +1,5 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { RuleSettings, RunOption, SmartMixPlan, VibeType } from "../types";
 
 /**
@@ -9,7 +9,7 @@ export const getMixInsight = async (option: RunOption, rules: RuleSettings): Pro
   try {
     // Initialize Gemini API client inside the function to ensure up-to-date API key usage
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const response = await ai.models.generateContent({
+    const response: GenerateContentResponse = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Provide a short, 1-sentence professional musicology insight for a user's playlist mix.
         Mix Name: ${option.name}
