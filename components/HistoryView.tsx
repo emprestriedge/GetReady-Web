@@ -127,8 +127,8 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
 
   return (
     <div className="p-4 animate-in fade-in duration-500 pb-32">
-      <header className="mb-10 pl-14 pr-4 flex justify-between items-end stagger-entry stagger-1">
-        <h1 className="header-text-responsive font-mango header-ombre leading-none">History</h1>
+      <header className="mb-10 pl-14 pr-4 flex justify-between items-end stagger-entry stagger-1" style={{ paddingTop: '8px' }}>
+        <h1 className="text-8xl font-mango header-ombre leading-none tracking-tighter">History</h1>
         {history.length > 0 && (
           <button 
             onClick={handleClearHistory}
@@ -217,10 +217,12 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
       )}
 
       {showDevicePicker && (
-        <DevicePickerModal 
-          onSelect={handleDeviceSelected} 
-          onClose={() => setShowDevicePicker(null)} 
-        />
+        <div className="fixed inset-0 z-[200]">
+           <DevicePickerModal 
+             onSelect={handleDeviceSelected} 
+             onClose={() => setShowDevicePicker(null)} 
+           />
+        </div>
       )}
 
       {showSpotifyPrompt && (

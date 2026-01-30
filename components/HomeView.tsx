@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { RunOption, RunOptionType, VibeType, SmartMixPlan, RuleSettings } from '../types';
 import { SMART_MIX_MODES, MUSIC_BUTTONS, PODCAST_OPTIONS } from '../constants';
@@ -138,9 +137,9 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
 
   const renderRoot = () => (
     <div className="flex flex-col gap-4 px-4 pb-12 w-full max-w-full overflow-x-hidden">
-      <header className="mb-4 pl-8 stagger-entry stagger-1">
-        <h1 className="header-text-responsive font-mango header-ombre">Library</h1>
-        <p className="ios-caption text-zinc-500 text-[9px] mt-3 ml-1">Daily Prep</p>
+      <header className="mb-6 pl-8 stagger-entry stagger-1" style={{ paddingTop: '8px' }}>
+        <h1 className="text-8xl font-mango header-ombre leading-none tracking-tighter">Library</h1>
+        <p className="ios-caption text-zinc-500 text-[10px] font-black uppercase tracking-[0.3em] mt-5 ml-1">Daily Catalog</p>
       </header>
 
       <div className="flex flex-col gap-4 mb-6 stagger-entry stagger-2">
@@ -231,12 +230,6 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
               <span className="text-[14px] font-black uppercase tracking-[0.2em] text-white">Generate Mix</span>
             </div>
           </button>
-          {smartPlan && !loading && (
-            <div className="mt-2 p-5 bg-black/40 rounded-3xl border border-palette-emerald/20 animate-in zoom-in duration-500">
-              <span className="text-palette-emerald font-black text-[10px] uppercase tracking-widest">Catalog Recipe:</span>
-              <p className="text-[11px] font-mono text-[#D1F2EB] font-bold leading-relaxed uppercase tracking-wider mt-2">{smartPlan.summary}</p>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -251,9 +244,9 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
     const title = isMusic ? 'Music' : 'Shows';
     return (
       <div className="flex flex-col gap-6 px-4 w-full max-w-full overflow-x-hidden">
-        <header className="flex flex-col gap-2 pl-8 stagger-entry stagger-1">
+        <header className="flex flex-col gap-2 pl-8 stagger-entry stagger-1" style={{ paddingTop: '8px' }}>
           <button onClick={() => navigateTo('root')} className="text-palette-pink flex items-center gap-1 active:opacity-50 font-black text-xs uppercase tracking-widest"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M15 19l-7-7 7-7" /></svg><span className="font-garet font-bold">Library</span></button>
-          <h2 className="header-text-responsive font-mango header-ombre mt-2 leading-none">{title}</h2>
+          <h2 className="text-8xl font-mango header-ombre leading-none mt-2 tracking-tighter">{title}</h2>
         </header>
         <div className="glass-panel-gold rounded-[32px] overflow-hidden divide-y divide-white/5 stagger-entry stagger-2">
           {options.map((option, i) => (

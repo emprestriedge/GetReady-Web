@@ -81,8 +81,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
 
   return (
     <div className="p-4 animate-in fade-in duration-500 pb-32 w-full max-w-full overflow-x-hidden box-border">
-      <header className="mb-10 pl-14 pr-4">
-        <h1 className="header-text-responsive font-mango header-ombre">Settings</h1>
+      <header className="mb-10 pl-14 pr-4" style={{ paddingTop: '8px' }}>
+        <h1 className="text-7xl font-mango header-ombre leading-none tracking-tighter">Settings</h1>
       </header>
 
       <div className="flex flex-col gap-8 w-full max-w-full overflow-x-hidden">

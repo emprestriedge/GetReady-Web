@@ -84,6 +84,7 @@ const ToastOverlay: React.FC = () => {
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('Home');
   const [selectedOption, setSelectedOption] = useState<RunOption | null>(null);
+  const [currentRunResult, setCurrentRunResult] = useState<RunResult | null>(null);
   const [spotifyUser, setSpotifyUser] = useState<SpotifyUser | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus>('idle');
@@ -149,7 +150,10 @@ const App: React.FC = () => {
           setSpotifyUser(user);
           setAuthStatus('connected');
           authStore.setConnected(true);
-          ResourceResolver.resolveAll().catch(() => {});
+          
+          if (config.spotifyClientId) {
+            ResourceResolver.resolveAll().catch(() => {});
+          }
           spotifyPlayback.init();
         } else {
           setAuthStatus('idle');
@@ -179,6 +183,20 @@ const App: React.FC = () => {
     localStorage.setItem('spotify_buddy_history', JSON.stringify(updatedHistory));
   };
 
+  const handleRestoreRun = () => {
+    if (currentRunResult) {
+      Haptics.medium();
+      // Restore the view for the last generated result
+      const opt: RunOption = {
+         id: currentRunResult.optionName.toLowerCase().replace(/\s+/g, '_'),
+         name: currentRunResult.optionName,
+         type: currentRunResult.runType,
+         description: 'Active Session'
+      };
+      setSelectedOption(opt);
+    }
+  };
+
   return (
     <ErrorBoundary>
       <InkBackground>
@@ -188,8 +206,8 @@ const App: React.FC = () => {
             id="main-content-scroller" 
             className="flex-1 overflow-y-auto bg-transparent scroll-smooth -webkit-overflow-scrolling-touch"
             style={{ 
-              paddingTop: 'calc(env(safe-area-inset-top, 0px) + 64px)', // Increased top breathing room for Dynamic Island
-              paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 110px)', 
+              paddingTop: 'calc(env(safe-area-inset-top, 0px) + 42px)', 
+              paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 120px)', 
               height: '100%' 
             }}
           >
@@ -209,6 +227,8 @@ const App: React.FC = () => {
                 onClose={() => { Haptics.light(); setSelectedOption(null); }}
                 onComplete={(res) => addToHistory(res)}
                 onNavigateToHistory={() => setActiveTab('History')}
+                initialResult={currentRunResult?.optionName === selectedOption.name ? currentRunResult : undefined}
+                onResultUpdate={(res) => setCurrentRunResult(res)}
               />
             ) : activeTab === 'Home' ? (
               <HomeView onSelect={(opt) => setSelectedOption(opt)} rules={config.rules} setRules={(u: any) => configStore.updateRules(typeof u === 'function' ? u(config.rules) : u)} />
@@ -223,7 +243,7 @@ const App: React.FC = () => {
             )}
           </main>
 
-          {authReady && <NowPlayingStrip />}
+          {authReady && <NowPlayingStrip onStripClick={handleRestoreRun} />}
 
           {authReady && !selectedOption && (authStatus !== 'exchanging' && authStatus !== 'waiting') && (
             <nav 
@@ -242,9 +262,9 @@ const App: React.FC = () => {
 };
 
 const TabButton: React.FC<{ label: string; isActive: boolean; onClick: () => void; icon: React.ReactNode; }> = ({ label, isActive, onClick, icon }) => (
-  <button onClick={onClick} className={`flex-1 flex flex-row items-center justify-center gap-2 transition-all transform active:scale-95 ${isActive ? 'text-palette-pink' : 'text-zinc-600 opacity-60'}`}>
+  <button onClick={onClick} className={`flex-1 flex flex-row items-center justify-center gap-2.5 transition-all transform active:scale-95 ${isActive ? 'text-palette-pink' : 'text-zinc-600 opacity-60'}`}>
     {icon}
-    <span className={`text-[12px] font-bold uppercase tracking-widest ${isActive ? 'text-palette-pink' : 'text-zinc-600'}`}>{label}</span>
+    <span className={`text-[13px] font-black uppercase tracking-widest ${isActive ? 'text-palette-pink' : 'text-zinc-600'}`}>{label}</span>
   </button>
 );
 
