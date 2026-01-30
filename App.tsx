@@ -188,8 +188,8 @@ const App: React.FC = () => {
             id="main-content-scroller" 
             className="flex-1 overflow-y-auto bg-transparent scroll-smooth -webkit-overflow-scrolling-touch"
             style={{ 
-              paddingTop: 'calc(env(safe-area-inset-top, 0px) + 48px)', // Extra breathing room for notch
-              paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 120px)', 
+              paddingTop: 'calc(env(safe-area-inset-top, 0px) + 64px)', // Increased top breathing room for Dynamic Island
+              paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 110px)', 
               height: '100%' 
             }}
           >
@@ -227,8 +227,8 @@ const App: React.FC = () => {
 
           {authReady && !selectedOption && (authStatus !== 'exchanging' && authStatus !== 'waiting') && (
             <nav 
-              className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-3xl border-t border-white/10 flex justify-around items-center z-50" 
-              style={{ height: 'calc(env(safe-area-inset-bottom, 0px) + 26px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+              className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-3xl border-t border-white/10 flex justify-around items-center z-50 px-6" 
+              style={{ height: 'calc(env(safe-area-inset-bottom, 0px) + 28px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
             >
               <TabButton label="Home" isActive={activeTab === 'Home'} onClick={() => setActiveTab('Home')} icon={<svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>} />
               <TabButton label="Logs" isActive={activeTab === 'History'} onClick={() => setActiveTab('History')} icon={<svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>} />
