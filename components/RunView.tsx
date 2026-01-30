@@ -42,12 +42,11 @@ const TrackRow: React.FC<{
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     
-    // Interaction: Long Press to toggle 'Saved' status
+    // Logic: Long Press to toggle 'Saved' (Pink/Grey)
     longPressTimer.current = window.setTimeout(() => {
       onStatusToggle(track);
       Haptics.impact();
-      // Ensure we don't trigger play on release
-      setLastTap(0);
+      setLastTap(0); // Prevent play on release
     }, 600);
   };
 
@@ -85,23 +84,35 @@ const TrackRow: React.FC<{
     touchStartX.current = null;
   };
 
-  // Interaction: Double Tap to Play
+  // Logic: Double Tap to Play immediately
   const handleInteraction = () => {
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300;
     if (now - lastTap < DOUBLE_TAP_DELAY) {
       onPlay(track);
-      setLastTap(0); // Reset after success
+      setLastTap(0);
     } else {
       setLastTap(now);
     }
   };
 
+  // Interaction visual: "Block" fades in as you swipe
+  const blockTextOpacity = Math.min(1, Math.abs(swipeX) / 80);
+  const blockBgOpacity = Math.min(0.8, Math.abs(swipeX) / 100);
+
   return (
-    <div className="relative overflow-hidden bg-red-600 first:rounded-t-[32px] last:rounded-b-[32px]">
-      {/* Hidden Block Layer - Re-asserted as the only red area in the UI */}
-      <div className="absolute inset-0 flex items-center justify-end px-8">
-        <span className="text-white font-black text-[10px] uppercase tracking-[0.3em] drop-shadow-md">Block</span>
+    <div className="relative overflow-hidden bg-black first:rounded-t-[32px] last:rounded-b-[32px]">
+      {/* Dynamic Block Layer: Replaces the static red background to prevent bleed */}
+      <div 
+        className="absolute inset-0 flex items-center justify-end px-10 transition-colors pointer-events-none"
+        style={{ backgroundColor: `rgba(255, 0, 122, ${blockBgOpacity * 0.3})` }}
+      >
+        <span 
+          className="text-white font-black text-[12px] uppercase tracking-[0.4em]"
+          style={{ opacity: blockTextOpacity }}
+        >
+          Block
+        </span>
       </div>
 
       <button 
@@ -114,29 +125,30 @@ const TrackRow: React.FC<{
           transform: `translateX(${swipeX}px)`,
           transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.23, 1, 0.32, 1)'
         }}
-        /* Obsidian Jelly Glass Styling: Transparent black, blur, and subtle purple/teal accents */
-        className={`w-full flex items-center gap-4 p-5 transition-all group text-left select-none relative z-10 border-b border-[#6D28D9]/15 ${
+        /* Obsidian Jelly Glass Styling: Zero red, deep charcoal/black translucent base */
+        className={`w-full flex items-center gap-4 p-5 transition-all group text-left select-none relative z-10 border-b border-[#6D28D9]/20 ${
           isActive 
-            ? 'bg-palette-teal/15 border-palette-teal/30 shadow-[inset_0_0_30px_rgba(45,185,177,0.1)]' 
-            : 'bg-[#0c0c0c]/70 backdrop-blur-3xl hover:bg-white/5 active:bg-palette-teal/5'
+            ? 'bg-palette-teal/15 border-palette-teal/40 shadow-[inset_0_0_40px_rgba(45,185,177,0.15)]' 
+            : 'bg-[#0a0a0a]/85 backdrop-blur-3xl hover:bg-white/5 active:bg-palette-teal/5'
         }`}
       >
         <div className="relative shrink-0 flex items-center justify-center min-w-[24px]">
           {isActive ? (
-            /* Teal frequency indicator for active track (complimentary to app palette) */
-            <div className="flex gap-0.5 items-end h-3.5 mb-1">
+            /* Teal Frequency visualizer for active song */
+            <div className="flex gap-0.5 items-end h-4 mb-0.5">
                <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.6s_ease-in-out_infinite]" style={{ height: '100%' }} />
                <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.8s_ease-in-out_infinite]" style={{ height: '60%' }} />
                <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.7s_ease-in-out_infinite]" style={{ height: '85%' }} />
             </div>
           ) : (
-            <StatusAsterisk status={track.status === 'liked' ? 'liked' : 'none'} />
+            /* Asterisk: Pink for saved, Grey for not saved */
+            <StatusAsterisk status={track.status === 'liked' || track.status === 'gem' ? 'liked' : 'none'} />
           )}
         </div>
 
-        <div className={`w-12 h-12 rounded-2xl bg-zinc-900 overflow-hidden shrink-0 border relative pointer-events-none transition-all duration-500 ${isActive ? 'border-palette-teal/50 scale-105 shadow-[0_0_15px_rgba(45,185,177,0.3)]' : 'border-white/10'}`}>
+        <div className={`w-12 h-12 rounded-2xl bg-zinc-900 overflow-hidden shrink-0 border relative pointer-events-none transition-all duration-500 ${isActive ? 'border-palette-teal/60 scale-105 shadow-[0_0_20px_rgba(45,185,177,0.4)]' : 'border-white/10'}`}>
           <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
-          {isActive && <div className="absolute inset-0 bg-palette-teal/10 animate-pulse" />}
+          {isActive && <div className="absolute inset-0 bg-palette-teal/15 animate-pulse" />}
         </div>
 
         <div className="flex-1 min-w-0 pointer-events-none">
@@ -179,7 +191,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     if (!initialResult && genStatus === 'IDLE') startRun();
     checkDeviceStatus();
 
-    // Poll Spotify to keep track list in sync with actual playback
+    // Active playback polling for highlighting current track
     const pollPlayback = async () => {
       try {
         const state = await SpotifyApi.request('/me/player');
@@ -298,7 +310,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
 
     try {
       if (nextStatus === 'liked') {
-        // Logic change: When icon turns Pink, add track specifically to the 'GetReady Gems' playlist
+        // Direct save to "GetReady Gems"
         await SpotifyDataService.addTrackToGems(track.uri);
         toastService.show("Added to GetReady Gems", "success");
       } else {
@@ -389,9 +401,9 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   }, [result]);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-500 overflow-hidden text-[#A9E8DF]">
-      {/* Dynamic Header */}
-      <div className="px-6 pb-6 flex items-center justify-between border-b border-white/5 bg-black/20 shrink-0 pt-16">
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-500 overflow-hidden text-[#A9E8DF]">
+      {/* Top Header */}
+      <div className="px-6 pb-6 flex items-center justify-between border-b border-white/5 bg-black/30 shrink-0 pt-16">
         <button onClick={() => { Haptics.light(); onClose(); }} className="text-palette-pink text-[14px] font-black uppercase tracking-[0.2em] active:opacity-50 transition-opacity">
           Back
         </button>
@@ -427,9 +439,9 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
               </div>
             </header>
 
-            {/* List Container: Obsidian Jelly Glass with Purple Dividers */}
-            <div className="bg-[#0c0c0c]/75 backdrop-blur-3xl rounded-[32px] overflow-hidden border border-white/10 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.8),0_0_40px_rgba(109,40,217,0.05)] stagger-entry stagger-2">
-              <div className="divide-y divide-[#6D28D9]/15">
+            {/* Obsidian Glass List: Dual-tone shadow (Teal & Purple) with Purple Flash dividers */}
+            <div className="bg-[#0a0a0a]/60 backdrop-blur-3xl rounded-[32px] overflow-hidden border border-white/10 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.9),0_0_40px_rgba(109,40,217,0.1),0_0_40px_rgba(45,185,177,0.05)] stagger-entry stagger-2">
+              <div className="divide-y divide-[#6D28D9]/20">
                 {result?.tracks?.map((track, i) => (
                   <TrackRow 
                     key={track.uri + i} 
@@ -446,10 +458,10 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         )}
       </div>
 
-      {/* Persistent Action Bar */}
+      {/* Footer Persistent Bar */}
       {genStatus === 'DONE' && !isQueuePlaying && (
         <div 
-          className="fixed bottom-[56px] left-0 right-0 bg-black/70 backdrop-blur-[60px] border-t border-white/10 p-6 z-[110]"
+          className="fixed bottom-[56px] left-0 right-0 bg-black/80 backdrop-blur-[60px] border-t border-white/10 p-6 z-[110]"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
         >
            <div className="flex flex-col gap-4 max-w-lg mx-auto w-full">
@@ -485,7 +497,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         </div>
       )}
 
-      {/* Picker Modals */}
+      {/* Choice Modals */}
       {showPlayOptions && (
         <div className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in duration-400" onClick={() => setShowPlayOptions(false)}>
            <div className="bg-zinc-900 border border-white/10 rounded-[44px] p-8 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
