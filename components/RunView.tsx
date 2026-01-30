@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RunOption, RuleSettings, RunResult, RunOptionType, SpotifyDevice, Track, PodcastShowCandidate } from '../types';
 import { RuleOverrideStore } from '../services/ruleOverrideStore';
@@ -51,7 +50,6 @@ const TrackRow: React.FC<{
     const currentX = e.touches[0].clientX;
     const deltaX = currentX - touchStartX.current;
     
-    // Kill long press if user is moving
     if (Math.abs(deltaX) > 10) {
       if (longPressTimer.current) {
         clearTimeout(longPressTimer.current);
@@ -82,9 +80,8 @@ const TrackRow: React.FC<{
   };
 
   return (
-    <div className="relative overflow-hidden">
-      {/* Background Block Action */}
-      <div className="absolute inset-0 bg-red-600 flex items-center justify-end px-6">
+    <div className="relative overflow-hidden bg-red-600">
+      <div className="absolute inset-0 flex items-center justify-end px-6">
         <span className="text-white font-black text-[10px] uppercase tracking-widest">Block</span>
       </div>
 
@@ -98,7 +95,7 @@ const TrackRow: React.FC<{
           transform: `translateX(${swipeX}px)`,
           transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.23, 1, 0.32, 1)'
         }}
-        className="w-full flex items-center gap-4 p-4 bg-black/40 hover:bg-white/5 active:bg-palette-teal/10 transition-all group text-left select-none relative z-10"
+        className="w-full flex items-center gap-4 p-4 bg-zinc-950 backdrop-blur-md hover:bg-white/5 active:bg-palette-teal/10 transition-all group text-left select-none relative z-10 border-b border-white/5"
       >
         <StatusAsterisk status={track.status} />
         <div className="w-11 h-11 rounded-xl bg-zinc-900 overflow-hidden shrink-0 border border-white/10 relative pointer-events-none">
@@ -108,8 +105,6 @@ const TrackRow: React.FC<{
           <h4 className="text-[16px] font-gurmukhi text-[#D1F2EB] group-active:text-palette-teal truncate leading-tight">{track.title}</h4>
           <p className="text-[11px] text-zinc-500 font-medium truncate mt-0.5 font-garet">{track.artist}</p>
         </div>
-        
-        {/* Visual Cue for Swiping */}
         <div className="w-1.5 h-1.5 rounded-full bg-zinc-800" />
       </button>
     </div>
@@ -185,7 +180,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       const runResult = await engine.generateRunResult(option, effectiveRules);
       if (requestId !== generationRequestId.current) return;
 
-      // Initialize status for all tracks
       if (runResult.tracks) {
         runResult.tracks = runResult.tracks.map(t => ({ ...t, status: 'none' }));
       }
@@ -203,14 +197,16 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   };
 
   const handlePlayTrack = async (track: Track) => {
+    if (!result?.tracks) return;
     Haptics.light();
     setIsQueuePlaying(true); 
-    
     try {
       const devices = await SpotifyApi.getDevices();
       const active = devices.find(d => d.is_active);
+      const trackIdx = result.tracks.findIndex(t => t.uri === track.uri);
+      const queue = result.tracks.slice(trackIdx).map(t => t.uri);
       if (active) {
-        await spotifyPlayback.playUrisOnDevice(active.id, [track.uri]);
+        await spotifyPlayback.playUrisOnDevice(active.id, queue);
         Haptics.success();
       } else {
         setShowDevicePicker(true);
@@ -221,20 +217,42 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     }
   };
 
-  const handleToggleStatus = (track: Track) => {
+  const handleToggleStatus = async (track: Track) => {
+    if (!result || !result.tracks) return;
+    const trackId = track.uri.split(':').pop() || '';
+    const currentTrack = result.tracks.find(t => t.uri === track.uri);
+    if (!currentTrack) return;
+    const nextStatus: Track['status'] = currentTrack.status === 'none' ? 'liked' : 
+                                       currentTrack.status === 'liked' ? 'gem' : 'none';
     setResult(prev => {
       if (!prev || !prev.tracks) return prev;
       const updatedTracks = prev.tracks.map(t => {
-        if (t.uri === track.uri) {
-          const nextStatus: Track['status'] = t.status === 'none' ? 'liked' : t.status === 'liked' ? 'gem' : 'none';
-          return { ...t, status: nextStatus };
-        }
+        if (t.uri === track.uri) return { ...t, status: nextStatus };
         return t;
       });
       const updated = { ...prev, tracks: updatedTracks };
       onResultUpdate?.(updated);
       return updated;
     });
+    try {
+      if (nextStatus === 'liked') {
+        await SpotifyDataService.removeTrackFromGems(track.uri).catch(() => {});
+        await SpotifyDataService.setTrackLiked(trackId, true);
+        toastService.show("Added to Liked Songs", "success");
+      } else if (nextStatus === 'gem') {
+        await SpotifyDataService.setTrackLiked(trackId, false).catch(() => {});
+        await SpotifyDataService.addTrackToGems(track.uri);
+        toastService.show("Added to Gems playlist", "success");
+      } else {
+        await Promise.all([
+          SpotifyDataService.setTrackLiked(trackId, false),
+          SpotifyDataService.removeTrackFromGems(track.uri)
+        ]);
+        toastService.show("Removed from collections", "info");
+      }
+    } catch (e: any) {
+      toastService.show("Catalog sync failed", "error");
+    }
   };
 
   const handleBlockTrack = (track: Track) => {
@@ -294,7 +312,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     Haptics.medium();
     setShowDevicePicker(false);
     setIsQueuePlaying(true);
-    
     try {
       const activeId = await spotifyPlayback.ensureActiveDevice(deviceId);
       const uris = result.tracks.map(t => t.uri);
@@ -317,10 +334,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-300 overflow-hidden text-[#A9E8DF]">
-      {/* Increased pt-16 to consistently clear notch */}
-      <div 
-        className="px-6 pb-5 flex items-center justify-between border-b border-white/5 bg-black/20 shrink-0 pt-16"
-      >
+      <div className="px-6 pb-5 flex items-center justify-between border-b border-white/5 bg-black/20 shrink-0 pt-16">
         <button onClick={() => { Haptics.light(); onClose(); }} className="text-zinc-500 text-[14px] font-garet font-black uppercase tracking-widest active:text-white transition-colors">
           Back
         </button>
@@ -378,27 +392,30 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
               <div className="flex gap-3">
                  <button 
                    onClick={() => { Haptics.medium(); setShowPlayOptions(true); }}
-                   className="flex-1 bg-[#1DB954] text-white font-black py-4 rounded-[22px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-2xl border border-white/10 flex items-center justify-center gap-2"
+                   className="relative overflow-hidden flex-1 bg-gradient-to-br from-[#1DB954] to-[#1ed760] text-white font-black py-4 rounded-[22px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-xl shadow-[#1DB954]/20 border border-white/20 flex items-center justify-center gap-2 group"
                  >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                    Play
+                    <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
+                    <svg className="w-5 h-5 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <span className="relative z-10">Play</span>
                  </button>
                  
                  <button 
                    onClick={() => { Haptics.medium(); setShowSaveOptions(true); }}
-                   className="flex-1 bg-palette-teal text-white font-black py-4 rounded-[22px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-2xl border border-white/10 flex items-center justify-center gap-2"
+                   className="relative overflow-hidden flex-1 bg-gradient-to-br from-[#2DB9B1] to-[#40D9D0] text-white font-black py-4 rounded-[22px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-xl shadow-palette-teal/20 border border-white/20 flex items-center justify-center gap-2 group"
                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
-                    Save
+                    <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
+                    <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+                    <span className="relative z-10">Save</span>
                  </button>
               </div>
 
               <button 
                 onClick={startRun}
-                className="w-full bg-palette-pink text-white font-black py-5 rounded-[22px] active:scale-[0.96] transition-all font-garet uppercase tracking-[0.2em] text-[12px] flex items-center justify-center gap-3 shadow-xl shadow-palette-pink/20"
+                className="relative overflow-hidden w-full bg-gradient-to-br from-[#FF007A] to-[#FF4D9F] text-white font-black py-5 rounded-[22px] active:scale-[0.96] transition-all font-garet uppercase tracking-[0.2em] text-[12px] flex items-center justify-center gap-3 shadow-2xl shadow-palette-pink/30 border border-white/20"
               >
-                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                 Regenerate
+                 <div className="absolute top-1 left-2 w-[92%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
+                 <svg className="w-4 h-4 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                 <span className="relative z-10">Regenerate</span>
               </button>
            </div>
         </div>
@@ -407,13 +424,15 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       {showPlayOptions && (
         <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowPlayOptions(false)}>
            <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
-              <button onClick={handlePlayOnSpotify} className="w-full bg-[#1DB954] text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all">
+              <button onClick={handlePlayOnSpotify} className="relative overflow-hidden w-full bg-[#1DB954] text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all">
+                 <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
                  Play on Spotify
               </button>
               <button 
                 onClick={handlePushToDevice} 
-                className={`w-full py-5 rounded-2xl font-garet font-black uppercase tracking-widest text-xs active:scale-95 transition-all border border-white/10 ${hasDevices ? 'bg-palette-teal text-white shadow-lg shadow-palette-teal/20' : 'bg-zinc-800 border-zinc-700 text-zinc-500'}`}
+                className={`relative overflow-hidden w-full py-5 rounded-2xl font-garet font-black uppercase tracking-widest text-xs active:scale-95 transition-all border border-white/10 ${hasDevices ? 'bg-palette-teal text-white shadow-lg shadow-palette-teal/20' : 'bg-zinc-800 border-zinc-700 text-zinc-500'}`}
               >
+                 {hasDevices && <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />}
                  Push to Device
               </button>
               <button onClick={() => setShowPlayOptions(false)} className="w-full py-2 text-zinc-600 font-black uppercase tracking-widest text-[10px] mt-2">Cancel</button>
@@ -430,8 +449,9 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                   setShowSaveConfirmDialog('logs');
                   setShowSaveOptions(false);
                 }} 
-                className="w-full bg-palette-teal text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all shadow-lg shadow-palette-teal/10"
+                className="relative overflow-hidden w-full bg-palette-teal text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all shadow-lg shadow-palette-teal/10"
               >
+                 <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
                  Save to Logs
               </button>
               <button 
@@ -440,8 +460,9 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                   setShowSaveConfirmDialog('spotify');
                   setShowSaveOptions(false);
                 }} 
-                className="w-full bg-[#1DB954] text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all shadow-lg shadow-[#1DB954]/10"
+                className="relative overflow-hidden w-full bg-[#1DB954] text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all shadow-lg shadow-[#1DB954]/10"
               >
+                 <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
                  Save to Spotify
               </button>
               <button onClick={() => setShowSaveOptions(false)} className="w-full py-2 text-zinc-600 font-black uppercase tracking-widest text-[10px] mt-2">Cancel</button>
@@ -469,8 +490,9 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                  <button 
                    onClick={handleConfirmSave} 
                    disabled={isSaving || !playlistName} 
-                   className={`w-full text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all ${showSaveConfirmDialog === 'spotify' ? 'bg-[#1DB954]' : 'bg-palette-teal'}`}
+                   className={`relative overflow-hidden w-full text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all ${showSaveConfirmDialog === 'spotify' ? 'bg-[#1DB954]' : 'bg-palette-teal'}`}
                  >
+                    <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
                     {isSaving ? 'Processing...' : 'Confirm Sync'}
                  </button>
                  <button onClick={() => setShowSaveConfirmDialog(null)} className="w-full py-2 text-zinc-600 font-black uppercase tracking-widest text-[10px]">Cancel</button>

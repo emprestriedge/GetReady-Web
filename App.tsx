@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import { TabType, RuleSettings, RunOption, RunRecord, SpotifyUser, RunResult, AppConfig } from './types';
 import HomeView from './components/HomeView';
 import HistoryView from './components/HistoryView';
@@ -23,9 +23,13 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// @fix: Using React.Component explicitly to ensure props/state are correctly typed in class context and resolve the reported "Property 'props' does not exist" error.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// @fix: Using the named 'Component' import directly ensures that TypeScript correctly identifies this as a React class component with props/state generics, resolving the "Property 'props' does not exist" error.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
+
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+  }
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
     const normalized = error instanceof Error ? error : new Error("Unknown Error");

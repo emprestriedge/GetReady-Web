@@ -1,3 +1,4 @@
+
 import { SpotifyApi } from './spotifyApi';
 import { SpotifyTrack, SpotifyEpisode, SpotifyArtist } from '../types';
 import { apiLogger } from './apiLogger';
@@ -16,6 +17,9 @@ const normalizeLimit = (endpoint: string, input: any, defaultValue: number, maxV
   
   return finalVal;
 };
+
+// Internal cache for the Gems playlist ID
+let cachedGemsPlaylistId: string | null = null;
 
 export const SpotifyDataService = {
   getUserCountry: async (): Promise<string> => {
@@ -37,6 +41,56 @@ export const SpotifyDataService = {
     const nLimit = normalizeLimit('/me/tracks', limit, 50, 50);
     const data = await SpotifyApi.request(`/me/tracks?limit=${nLimit}`);
     return new Set(data.items.map((item: any) => item.track.id));
+  },
+
+  /**
+   * Syncs "Liked" status with Spotify Library.
+   */
+  setTrackLiked: async (trackId: string, liked: boolean): Promise<void> => {
+    const method = liked ? 'PUT' : 'DELETE';
+    await SpotifyApi.request(`/me/tracks?ids=${trackId}`, { method });
+    apiLogger.logClick(`Library: ${liked ? 'Saved' : 'Removed'} track ${trackId}`);
+  },
+
+  /**
+   * Manages the "GetReady Gems" playlist.
+   */
+  ensureGemsPlaylist: async (): Promise<string> => {
+    if (cachedGemsPlaylistId) return cachedGemsPlaylistId;
+
+    const me = await SpotifyApi.getMe();
+    const existingId = await SpotifyDataService.resolvePlaylistByName("GetReady Gems");
+    
+    if (existingId) {
+      cachedGemsPlaylistId = existingId;
+      return existingId;
+    }
+
+    const newPlaylist = await SpotifyDataService.createPlaylist(
+      me.id, 
+      "GetReady Gems", 
+      "A curated collection of your top-tier finds from GetReady syncs."
+    );
+    cachedGemsPlaylistId = newPlaylist.id;
+    return newPlaylist.id;
+  },
+
+  addTrackToGems: async (trackUri: string): Promise<void> => {
+    const playlistId = await SpotifyDataService.ensureGemsPlaylist();
+    await SpotifyApi.request(`/playlists/${playlistId}/tracks`, {
+      method: 'POST',
+      body: JSON.stringify({ uris: [trackUri] })
+    });
+    apiLogger.logClick(`Gems: Added ${trackUri} to GetReady Gems`);
+  },
+
+  removeTrackFromGems: async (trackUri: string): Promise<void> => {
+    const playlistId = await SpotifyDataService.ensureGemsPlaylist();
+    await SpotifyApi.request(`/playlists/${playlistId}/tracks`, {
+      method: 'DELETE',
+      body: JSON.stringify({ tracks: [{ uri: trackUri }] })
+    });
+    apiLogger.logClick(`Gems: Removed ${trackUri} from GetReady Gems`);
   },
 
   checkTracksSaved: async (trackIds: string[]): Promise<boolean[]> => {
