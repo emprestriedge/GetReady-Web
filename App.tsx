@@ -143,7 +143,6 @@ const App: React.FC = () => {
   const handleTabClick = (tab: TabType) => {
     Haptics.light();
     
-    // Switch tab logic: if we are in a run, dismiss it and go to the tab
     setActiveRunOption(null);
     setActiveRunResult(null);
 
@@ -180,7 +179,7 @@ const App: React.FC = () => {
           className="flex-1 overflow-y-auto w-full relative scroll-smooth"
           style={{ 
             paddingTop: 'calc(env(safe-area-inset-top, 0px) + 52px)',
-            paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 180px)' // Clear Mini-player + Nav bar
+            paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 140px)' // Adjusted for slimmer bar
           }}
         >
           {activeTab === 'Home' && (
@@ -219,14 +218,13 @@ const App: React.FC = () => {
           />
         )}
 
-        {/* Global Mini Player */}
         <NowPlayingStrip />
 
-        {/* Persistent Bottom Tab Bar */}
+        {/* Persistent Bottom Tab Bar - Slimmer height (48px base) */}
         <nav 
           className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-3xl border-t border-white/5 flex items-center justify-around px-4 z-[300]"
           style={{ 
-            height: 'calc(80px + env(safe-area-inset-bottom, 0px))',
+            height: 'calc(48px + env(safe-area-inset-bottom, 0px))',
             paddingBottom: 'env(safe-area-inset-bottom, 0px)'
           }}
         >
@@ -236,14 +234,14 @@ const App: React.FC = () => {
               <button
                 key={tab}
                 onClick={() => handleTabClick(tab)}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${isActive ? 'scale-105' : 'opacity-40 grayscale'}`}
+                className={`flex flex-col items-center justify-center h-full transition-all duration-300 ${isActive ? 'scale-105' : 'opacity-40 grayscale'}`}
               >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isActive ? 'bg-palette-pink text-white shadow-lg shadow-palette-pink/30' : 'text-zinc-400'}`}>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isActive ? 'bg-palette-pink text-white shadow-lg shadow-palette-pink/30' : 'text-zinc-400'}`}>
                   {tab === 'Home' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>}
                   {tab === 'History' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.07L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9z"/></svg>}
                   {tab === 'Settings' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>}
                 </div>
-                <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-palette-pink' : 'text-zinc-500'}`}>
+                <span className={`text-[9px] font-black uppercase tracking-widest mt-0.5 ${isActive ? 'text-palette-pink' : 'text-zinc-500'}`}>
                   {tab}
                 </span>
               </button>
@@ -255,5 +253,4 @@ const App: React.FC = () => {
   );
 };
 
-// Fix for index.tsx error: added missing default export
 export default App;

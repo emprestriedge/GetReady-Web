@@ -63,8 +63,7 @@
             overflow: hidden;
             width: 100%;
             height: 100%;
-            position: fixed; /* Prevents "rubber-banding" of the whole body on iOS */
-            overscroll-behavior: none;
+            min-height: 100%;
             margin: 0;
             padding: 0;
             background-color: #000;
@@ -76,7 +75,6 @@
             -moz-osx-font-smoothing: grayscale;
             color: #fff;
             letter-spacing: -0.015em;
-            /* touch-action: none removed to allow scrolling on internal containers */
         }
 
         @keyframes highlightShimmer {
@@ -156,6 +154,7 @@
             flex-direction: column;
             overflow: hidden;
             position: relative;
+            background-color: #000;
         }
         
         .glass-panel-gold {
@@ -212,7 +211,6 @@
             transform: translateY(0);
         }
 
-        /* Prevent scroll text selection */
         .no-select {
             -webkit-user-select: none;
             user-select: none;

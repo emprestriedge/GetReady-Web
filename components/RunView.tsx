@@ -357,8 +357,8 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   }, [result]);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-300 overflow-hidden text-[#A9E8DF]">
-      <div className="px-6 pb-5 flex items-center justify-between border-b border-white/5 bg-black/20 shrink-0 pt-16">
+    <div className="fixed inset-0 z-[1000] bg-black flex flex-col animate-in slide-in-from-right duration-300 overflow-hidden text-[#A9E8DF]">
+      <div className="px-6 pb-5 flex items-center justify-between border-b border-white/5 bg-black/40 shrink-0 pt-16">
         <button onClick={() => { Haptics.light(); onClose(); }} className="text-zinc-500 text-[14px] font-garet font-black uppercase tracking-widest active:text-white transition-colors">
           Back
         </button>
@@ -366,7 +366,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         <div className="w-12" />
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 pb-[450px]">
+      <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 pb-[300px]">
         {genStatus === 'RUNNING' ? (
           <div className="h-full flex flex-col items-center justify-center text-center gap-12 animate-in fade-in duration-1000">
              <div className="relative">
@@ -409,46 +409,46 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         )}
       </div>
 
-      {genStatus === 'DONE' && !isQueuePlaying && (
+      {genStatus === 'DONE' && (
         <div 
-          className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-3xl border-t border-white/10 p-5 z-[110]"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 32px)' }}
+          className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-3xl border-t border-white/10 p-6 z-[1010]"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)' }}
         >
-           <div className="flex flex-col gap-4 max-w-lg mx-auto w-full">
-              <div className="flex gap-3">
+           <div className="flex flex-col gap-5 max-w-lg mx-auto w-full">
+              <div className="flex gap-4">
                  <button 
                    onClick={() => { Haptics.medium(); setShowPlayOptions(true); }}
-                   className="flex-1 relative overflow-hidden bg-gradient-to-br from-[#1DB954] via-[#1ED760] to-[#1DB954] text-white font-black py-4.5 rounded-[22px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-2xl shadow-[#1DB954]/30 border border-white/15 flex items-center justify-center gap-2"
+                   className="flex-1 relative overflow-hidden bg-gradient-to-br from-[#1DB954] via-[#1ED760] to-[#1DB954] text-white font-black py-5 rounded-[26px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[14px] shadow-2xl shadow-[#1DB954]/30 border border-white/15 flex items-center justify-center gap-3"
                  >
                     <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
-                    <svg className="w-5 h-5 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <svg className="w-6 h-6 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                     <span className="relative z-10">Play</span>
                  </button>
                  
                  <button 
                    onClick={() => { Haptics.medium(); setShowSaveOptions(true); }}
-                   className="flex-1 relative overflow-hidden bg-gradient-to-br from-[#19A28E] via-[#2DB9B1] to-[#40D9D0] text-white font-black py-4.5 rounded-[22px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-2xl shadow-[#2DB9B1]/30 border border-white/15 flex items-center justify-center gap-2"
+                   className="flex-1 relative overflow-hidden bg-gradient-to-br from-[#19A28E] via-[#2DB9B1] to-[#40D9D0] text-white font-black py-5 rounded-[26px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[14px] shadow-2xl shadow-[#2DB9B1]/30 border border-white/15 flex items-center justify-center gap-3"
                  >
                     <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
-                    <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+                    <svg className="w-6 h-6 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
                     <span className="relative z-10">Save</span>
                  </button>
               </div>
 
               <button 
                 onClick={startRun}
-                className="w-full relative overflow-hidden bg-gradient-to-br from-[#FF007A] via-[#FF1A8B] to-[#FF4D9F] text-white font-black py-5 rounded-[22px] active:scale-[0.96] transition-all font-garet uppercase tracking-[0.2em] text-[12px] flex items-center justify-center gap-3 shadow-2xl shadow-palette-pink/40 border border-white/15"
+                className="w-full relative overflow-hidden bg-gradient-to-br from-[#FF007A] via-[#FF1A8B] to-[#FF4D9F] text-white font-black py-6 rounded-[26px] active:scale-[0.96] transition-all font-garet uppercase tracking-[0.2em] text-[13px] flex items-center justify-center gap-3 shadow-2xl shadow-palette-pink/40 border border-white/15"
               >
                  <div className="absolute top-1 left-2 w-[90%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
-                 <svg className="w-4 h-4 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                 <span className="relative z-10">Regenerate</span>
+                 <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                 <span className="relative z-10">Regenerate Mix</span>
               </button>
            </div>
         </div>
       )}
 
       {showPlayOptions && (
-        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowPlayOptions(false)}>
+        <div className="fixed inset-0 z-[1100] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowPlayOptions(false)}>
            <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
               <button onClick={handlePlayOnSpotify} className="w-full relative overflow-hidden bg-gradient-to-br from-[#1DB954] via-[#1ED760] to-[#1DB954] text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all shadow-xl shadow-[#1DB954]/20 border border-white/15">
                  <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
@@ -466,7 +466,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       )}
 
       {showSaveOptions && (
-        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowSaveOptions(false)}>
+        <div className="fixed inset-0 z-[1100] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowSaveOptions(false)}>
            <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
               <button 
                 onClick={() => {
@@ -496,7 +496,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       )}
 
       {showSaveConfirmDialog && (
-        <div className="fixed inset-0 z-[250] bg-black/90 backdrop-blur-3xl flex items-center justify-center p-6 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[1200] bg-black/90 backdrop-blur-3xl flex items-center justify-center p-6 animate-in fade-in duration-300">
            <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-md flex flex-col gap-6 shadow-2xl" onClick={e => e.stopPropagation()}>
               <header>
                  <h2 className="text-4xl font-mango text-[#A9E8DF] leading-none">Sync Options</h2>
