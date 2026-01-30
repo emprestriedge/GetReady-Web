@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { RunOption, RuleSettings, RunResult, RunOptionType, SpotifyDevice, Track, PodcastShowCandidate } from '../types';
+import { motion, AnimatePresence } from 'framer-motion';
+import { RunOption, RuleSettings, RunResult, RunOptionType, Track } from '../types';
 import { RuleOverrideStore } from '../services/ruleOverrideStore';
 import { getEffectiveRules } from '../utils/ruleUtils';
 import { SpotifyPlaybackEngine } from '../services/playbackEngine';
@@ -10,9 +9,8 @@ import { spotifyPlayback } from '../services/spotifyPlaybackService';
 import { SpotifyApi } from '../services/spotifyApi';
 import { SpotifyDataService } from '../services/spotifyDataService';
 import { BlockStore } from '../services/blockStore';
-import { ContentIdStore } from '../services/contentIdStore';
 import DevicePickerModal from './DevicePickerModal';
-import { PinkAsterisk } from './HomeView';
+import { StatusAsterisk } from './HomeView';
 import { toastService } from '../services/toastService';
 
 interface RunViewProps {
@@ -27,7 +25,98 @@ interface RunViewProps {
 
 type GenStatus = 'IDLE' | 'RUNNING' | 'DONE' | 'ERROR';
 
-const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, onNavigateToHistory, initialResult, onResultUpdate }) => {
+/**
+ * TrackRow - Handles Double Tap to Play and Long Press to Like.
+ */
+const TrackRow: React.FC<{ 
+  track: Track; 
+  onPlay: (t: Track) => void; 
+  onBlock: (t: Track) => void;
+  onLike: (t: Track) => void;
+}> = ({ track, onPlay, onBlock, onLike }) => {
+  const lastTapRef = useRef<number>(0);
+  const longPressTimerRef = useRef<number | null>(null);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    // Start long press timer
+    longPressTimerRef.current = window.setTimeout(() => {
+      Haptics.impact();
+      onLike(track);
+      longPressTimerRef.current = null;
+    }, 600);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+      
+      // Handle Double Tap for Play
+      const now = Date.now();
+      const delay = 300;
+      if (now - lastTapRef.current < delay) {
+        onPlay(track);
+      } else {
+        lastTapRef.current = now;
+      }
+    }
+  };
+
+  const asteriskColor = useMemo(() => {
+    if (track.isLiked) return "text-palette-pink";
+    if (track.isGem) return "text-palette-emerald";
+    return "text-zinc-600";
+  }, [track.isLiked, track.isGem]);
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -300 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className="relative overflow-hidden bg-zinc-900 border-b border-white/5 last:border-0"
+    >
+      <div className="absolute inset-0 bg-red-600 flex items-center justify-end px-8 z-0">
+        <span className="text-white font-black uppercase tracking-widest text-[10px]">Block Track</span>
+      </div>
+
+      <motion.div
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.2}
+        onDragEnd={(_, info) => {
+          if (info.offset.x < -100) onBlock(track);
+        }}
+        className="w-full relative z-10 bg-zinc-900 transition-colors"
+      >
+        <div 
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          className="w-full flex items-center gap-4 p-5 active:bg-white/5 transition-all group text-left select-none cursor-pointer"
+        >
+          <StatusAsterisk colorClass={asteriskColor} />
+          
+          <div className="w-12 h-12 rounded-xl bg-black overflow-hidden shrink-0 border border-white/10 relative pointer-events-none shadow-lg">
+            <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
+          </div>
+          
+          <div className="flex-1 min-w-0 pointer-events-none">
+            <h4 className="text-[17px] font-gurmukhi text-[#D1F2EB] group-active:text-palette-teal truncate leading-tight tracking-tight">{track.title}</h4>
+            <p className="text-[12px] text-zinc-500 font-medium truncate mt-0.5 font-garet">{track.artist}</p>
+          </div>
+          
+          {track.isNew && (
+            <div className="w-6 h-6 flex items-center justify-center rounded-full bg-palette-pink/20 text-palette-pink">
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, initialResult, onResultUpdate }) => {
   const [genStatus, setGenStatus] = useState<GenStatus>(initialResult ? 'DONE' : 'IDLE');
   const [showPlayOptions, setShowPlayOptions] = useState(false);
   const [showSaveOptions, setShowSaveOptions] = useState(false);
@@ -39,7 +128,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
   const [error, setError] = useState<string | null>(null);
   const [playlistName, setPlaylistName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-
   const [hasDevices, setHasDevices] = useState(false);
   
   const generationRequestId = useRef(0);
@@ -75,11 +163,36 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
           const updated = { ...initialResult, tracks: [...validTracks, ...newTracks] };
           setResult(updated);
           onResultUpdate?.(updated);
+          syncStatus(updated.tracks);
         }
       } catch (e) {
         setResult({ ...initialResult, tracks: validTracks });
       }
+    } else {
+      syncStatus(validTracks);
     }
+  };
+
+  const syncStatus = async (tracks: Track[]) => {
+    if (!tracks.length) return;
+    try {
+      const ids = tracks.map(t => t.uri.split(':').pop()!).filter(Boolean);
+      const chunks = [];
+      for (let i = 0; i < ids.length; i += 50) chunks.push(ids.slice(i, i + 50));
+      
+      const results = await Promise.all(chunks.map(chunk => SpotifyDataService.checkTracksSaved(chunk)));
+      const likedMap = results.flat();
+      
+      setResult(prev => {
+        if (!prev || !prev.tracks) return prev;
+        const updated = prev.tracks.map((t, idx) => ({ 
+          ...t, 
+          isLiked: likedMap[idx],
+          isGem: t.isNew || false // In this prototype, 'New' tracks from engine are treated as 'Gems'
+        }));
+        return { ...prev, tracks: updated };
+      });
+    } catch (e) {}
   };
 
   const startRun = async () => {
@@ -98,6 +211,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
 
       setResult(runResult);
       setGenStatus('DONE');
+      if (runResult.tracks) syncStatus(runResult.tracks);
       onResultUpdate?.(runResult);
       Haptics.success();
     } catch (e: any) {
@@ -109,7 +223,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
   };
 
   const handlePlayTrack = async (track: Track) => {
-    Haptics.light();
+    Haptics.medium();
     setIsQueuePlaying(true); 
     
     try {
@@ -117,6 +231,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
       const active = devices.find(d => d.is_active);
       if (active) {
         await spotifyPlayback.playUrisOnDevice(active.id, [track.uri]);
+        window.dispatchEvent(new CustomEvent('spotify_playback_started'));
         Haptics.success();
       } else {
         setShowDevicePicker(true);
@@ -127,9 +242,43 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
     }
   };
 
+  const handleLikeTrack = async (track: Track) => {
+    Haptics.success();
+    const trackId = track.uri.split(':').pop()!;
+    const isCurrentlyLiked = track.isLiked;
+
+    try {
+      // Optimistic UI Update
+      setResult(prev => {
+        if (!prev || !prev.tracks) return prev;
+        return {
+          ...prev,
+          tracks: prev.tracks.map(t => t.uri === track.uri ? { ...t, isLiked: !isCurrentlyLiked } : t)
+        };
+      });
+
+      if (isCurrentlyLiked) {
+        await SpotifyApi.request(`/me/tracks?ids=${trackId}`, { method: 'DELETE' });
+        toastService.show("Removed from Liked Songs", "info");
+      } else {
+        await SpotifyApi.request(`/me/tracks?ids=${trackId}`, { method: 'PUT' });
+        toastService.show("Saved to Liked Songs", "success");
+      }
+    } catch (e: any) {
+      // Rollback on error
+      setResult(prev => {
+        if (!prev || !prev.tracks) return prev;
+        return {
+          ...prev,
+          tracks: prev.tracks.map(t => t.uri === track.uri ? { ...t, isLiked: isCurrentlyLiked } : t)
+        };
+      });
+      toastService.show("Failed to update status", "error");
+    }
+  };
+
   const handleBlockTrack = (track: Track) => {
     Haptics.impact();
-    // Use Track metadata to populate BlockedTrack entry
     BlockStore.add({
       id: track.uri,
       name: track.title,
@@ -176,6 +325,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
     if (uris.length > 0) {
        window.location.href = uris[0];
        setIsQueuePlaying(true);
+       window.dispatchEvent(new CustomEvent('spotify_playback_started'));
     }
     setShowPlayOptions(false);
   };
@@ -196,6 +346,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
       const activeId = await spotifyPlayback.ensureActiveDevice(deviceId);
       const uris = result.tracks.map(t => t.uri);
       await spotifyPlayback.playUrisOnDevice(activeId, uris);
+      window.dispatchEvent(new CustomEvent('spotify_playback_started'));
       Haptics.success();
     } catch (e: any) {
       Haptics.error();
@@ -252,56 +403,14 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
 
             <div className="glass-panel-gold rounded-[32px] overflow-hidden divide-y divide-white/5 border border-white/10 shadow-2xl stagger-entry stagger-2">
               <AnimatePresence initial={false}>
-                {result?.tracks?.map((track, i) => (
-                  <motion.div
-                    key={track.uri}
-                    layout
-                    initial={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -300 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    className="relative"
-                  >
-                    {/* Block background revealed on drag */}
-                    <motion.div 
-                      className="absolute inset-0 bg-red-600 flex items-center justify-end px-8 z-0"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      <span className="text-white font-black uppercase tracking-widest text-[12px]">Block</span>
-                    </motion.div>
-
-                    <motion.div
-                      drag="x"
-                      dragConstraints={{ left: 0, right: 0 }}
-                      onDragEnd={(_, info) => {
-                        if (info.offset.x < -100) {
-                          handleBlockTrack(track);
-                        }
-                      }}
-                      className="w-full relative z-10 bg-black/5"
-                    >
-                      <button 
-                        onClick={() => handlePlayTrack(track)}
-                        style={{ touchAction: 'manipulation' }}
-                        className="w-full flex items-center gap-4 p-4 hover:bg-white/5 active:bg-palette-teal/10 transition-all group text-left select-none"
-                      >
-                        <PinkAsterisk />
-                        <div className="w-11 h-11 rounded-xl bg-zinc-900 overflow-hidden shrink-0 border border-white/10 relative pointer-events-none">
-                          <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
-                        </div>
-                        <div className="flex-1 min-w-0 pointer-events-none">
-                          <h4 className="text-[16px] font-gurmukhi text-[#D1F2EB] group-active:text-palette-teal truncate leading-tight">{track.title}</h4>
-                          <p className="text-[11px] text-zinc-500 font-medium truncate mt-0.5 font-garet">{track.artist}</p>
-                        </div>
-                        {track.isNew && (
-                          <div className="w-6 h-6 flex items-center justify-center rounded-full bg-palette-pink/20 text-palette-pink">
-                            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                          </div>
-                        )}
-                      </button>
-                    </motion.div>
-                  </motion.div>
+                {result?.tracks?.map((track) => (
+                  <TrackRow 
+                    key={track.uri} 
+                    track={track} 
+                    onPlay={handlePlayTrack} 
+                    onBlock={handleBlockTrack}
+                    onLike={handleLikeTrack}
+                  />
                 ))}
               </AnimatePresence>
             </div>
