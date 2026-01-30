@@ -23,14 +23,12 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
       const state = await SpotifyApi.request('/me/player');
       if (state && state.item) {
         setPlaybackState(state);
-        // If we were dismissed but the user started a new song or resumed elsewhere, 
-        // we might want to show it again. For now, we respect the dismissal until it's "fresh".
         if (!isManuallyDismissed) {
           setIsVisible(true);
         }
       } else {
         setIsVisible(false);
-        setIsManuallyDismissed(false); // Reset dismissal when nothing is playing
+        setIsManuallyDismissed(false);
       }
     } catch (e) {
       setIsVisible(false);
@@ -52,42 +50,32 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
     if (touchStartX.current === null) return;
     const currentX = e.touches[0].clientX;
     const deltaX = currentX - touchStartX.current;
-    
-    // Add some resistance/friction to the drag
     setDragX(deltaX);
   };
 
   const handleTouchEnd = async () => {
     if (touchStartX.current === null) return;
-    
     const finalX = dragX;
     setIsSwiping(false);
     touchStartX.current = null;
 
     if (Math.abs(finalX) > DISMISS_THRESHOLD) {
-      // Dismiss Logic
       Haptics.impact();
-      
-      // Animate off-screen fully
       const exitDirection = finalX > 0 ? 500 : -500;
       setDragX(exitDirection);
 
       try {
-        // Stop playback
         await spotifyPlayback.pause();
-        // Hide component
         setTimeout(() => {
           setIsVisible(false);
           setIsManuallyDismissed(true);
           setDragX(0);
         }, 300);
       } catch (err) {
-        // Even if pause fails (e.g. already paused), we hide it
         setIsVisible(false);
         setIsManuallyDismissed(true);
       }
     } else {
-      // Snap back to center
       setDragX(0);
     }
   };
@@ -137,18 +125,19 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
 
   return (
     <div 
-      className={`fixed left-4 right-4 z-[200] cursor-pointer touch-none select-none ${!isSwiping ? 'transition-transform duration-300' : ''}`}
+      className={`fixed left-4 right-4 z-[200] cursor-pointer touch-none select-none ${!isSwiping ? 'transition-all duration-300' : ''}`}
       style={{ 
         bottom: 'calc(env(safe-area-inset-bottom, 0px) + 38px)',
         transform: `translateX(${dragX}px)`,
-        opacity: Math.max(0, 1 - Math.abs(dragX) / (DISMISS_THRESHOLD * 1.5))
+        opacity: Math.max(0, 1 - Math.abs(dragX) / (DISMISS_THRESHOLD * 2))
       }}
       onClick={() => onStripClick?.()}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <div className="bg-black/50 backdrop-blur-[64px] border border-white/10 rounded-[34px] overflow-hidden flex flex-col shadow-2xl transition-all active:scale-[0.99]">
+      {/* Black Jelly Glass Container */}
+      <div className="bg-black/60 backdrop-blur-[40px] border border-white/10 rounded-[34px] overflow-hidden flex flex-col shadow-[0_32px_64px_-16px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.15)] transition-all active:scale-[0.99]">
         {/* Progress Bar */}
         <div className="w-full h-[3px] bg-white/5">
           <div 
@@ -158,59 +147,59 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
         </div>
         
         {/* Main Interface */}
-        <div className="px-5 py-4 flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 border border-white/5 relative shadow-xl">
+        <div className="px-5 py-5 flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 border border-white/10 relative shadow-xl">
             <img src={imageUrl} className="w-full h-full object-cover" alt="Art" />
             {!isPlaying && (
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
               </div>
             )}
           </div>
           
           <div className="flex-1 min-w-0">
-            <h4 className="text-[14px] font-garet font-bold text-[#D1F2EB] truncate leading-tight">
+            <h4 className="text-[14px] font-garet font-black text-white truncate leading-tight tracking-tight">
               {track.name}
             </h4>
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className="text-[11px] text-zinc-500 font-medium truncate max-w-[55%]">
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <span className="text-[11px] text-zinc-400 font-bold truncate max-w-[55%]">
                 {track.artists?.[0]?.name || track.show?.name || 'Spotify'}
               </span>
               <span className="text-zinc-800 font-black text-[8px] shrink-0">•</span>
-              <span className="text-[10px] text-palette-gold/80 font-black uppercase tracking-widest truncate">
+              <span className="text-[10px] text-palette-teal font-black uppercase tracking-[0.1em] truncate">
                 {deviceName}
               </span>
             </div>
           </div>
 
-          {/* Controls */}
-          <div className="flex items-center gap-1 pr-1">
+          {/* Controls: Enhanced Visibility */}
+          <div className="flex items-center gap-2 pr-1">
             <button 
               onClick={handlePrevious}
               aria-label="Previous Track"
-              className="w-12 h-12 flex items-center justify-center text-[#D1F2EB]/60 hover:text-palette-pink active:scale-90 transition-all rounded-full hover:bg-white/5"
+              className="w-10 h-10 flex items-center justify-center text-white bg-white/5 border border-white/5 hover:bg-white/10 active:scale-90 transition-all rounded-full"
             >
-              <svg className="w-4.5 h-4.5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
             </button>
             
             <button 
               onClick={handleTogglePlay}
               aria-label={isPlaying ? "Pause" : "Play"}
-              className="w-12 h-12 flex items-center justify-center text-[#D1F2EB] active:scale-90 transition-transform rounded-full bg-white/5"
+              className="w-12 h-12 flex items-center justify-center text-white active:scale-90 transition-transform rounded-full bg-white/10 border border-white/5 shadow-inner"
             >
               {isPlaying ? (
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
               ) : (
-                <svg className="w-7 h-7 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                <svg className="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
               )}
             </button>
             
             <button 
               onClick={handleNext}
               aria-label="Next Track"
-              className="w-12 h-12 flex items-center justify-center text-[#D1F2EB]/60 hover:text-palette-pink active:scale-90 transition-all rounded-full hover:bg-white/5"
+              className="w-10 h-10 flex items-center justify-center text-white bg-white/5 border border-white/5 hover:bg-white/10 active:scale-90 transition-all rounded-full"
             >
-              <svg className="w-4.5 h-4.5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
             </button>
           </div>
         </div>

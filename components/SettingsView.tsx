@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { RuleSettings, DataSourceType, SpotifyUser, AppConfig } from '../types';
 import { BlockStore } from '../services/blockStore';
-import { ResourceResolver } from '../services/resourceResolver';
 import PerOptionRulesView from './PerOptionRulesView';
 import TestDataView from './TestDataView';
 import BlockedTracksView from './BlockedTracksView';
 import PodcastManagerView from './PodcastManagerView';
 import DeveloperToolsView from './DeveloperToolsView';
 import RapSourcesView from './RapSourcesView';
-import { SpotifyAuth, SCOPES } from '../services/spotifyAuth';
+import { SpotifyAuth } from '../services/spotifyAuth';
 import { Haptics } from '../services/haptics';
-import { apiLogger } from '../services/apiLogger';
 import { configStore } from '../services/configStore';
 
 interface SettingsViewProps {
@@ -81,7 +79,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
 
   return (
     <div className="p-4 animate-in fade-in duration-500 pb-32 w-full max-w-full overflow-x-hidden box-border">
-      <header className="mb-10 pl-14 pr-4" style={{ paddingTop: '8px' }}>
+      <header className="mb-10 pl-5 pr-4" style={{ paddingTop: '8px' }}>
         <h1 className="text-7xl font-mango header-ombre leading-none tracking-tighter">Settings</h1>
       </header>
 
