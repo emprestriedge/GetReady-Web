@@ -79,7 +79,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
 
   return (
     <div className="p-4 animate-in fade-in duration-500 pb-32 w-full max-w-full overflow-x-hidden box-border">
-      <header className="mb-10 pl-5 pr-4" style={{ paddingTop: '8px' }}>
+      <header className="mb-10 pl-5 pr-4">
         <h1 className="text-7xl font-mango header-ombre leading-none tracking-tighter">Settings</h1>
       </header>
 
@@ -214,7 +214,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
             <div className="px-6 py-5 flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <span className="text-[20px] font-garet font-medium text-[#A9E8DF]">Playlist Length</span>
-                <span className="text-palette-pink font-garet font-black text-2xl tabular-nums drop-shadow-[0_0_8px_rgba(255,0,122,0.4)]">{rules.playlistLength}</span>
+                <span className="text-palette-pink font-garet font-black text-2xl tabular-nums drop-shadow-0_0_8px_rgba(255,0,122,0.4)]">{rules.playlistLength}</span>
               </div>
               <input 
                 type="range" 

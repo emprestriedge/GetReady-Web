@@ -107,7 +107,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
   };
 
   const handlePlayTrack = async (track: Track) => {
-    // Provide IMMEDIATE tactile and UI feedback to fix "double-tap" perception
     Haptics.light();
     setIsQueuePlaying(true); 
     
@@ -119,8 +118,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
         Haptics.success();
       } else {
         setShowDevicePicker(true);
-        // If no active device, we might want to show the controls again, 
-        // but typically user will select a device and then it plays.
       }
     } catch (e: any) {
       setIsQueuePlaying(false);
@@ -208,10 +205,9 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-300 overflow-hidden text-[#A9E8DF]">
-      {/* Header */}
+      {/* Increased pt-16 to consistently clear notch */}
       <div 
-        className="px-6 pb-5 flex items-center justify-between border-b border-white/5 bg-black/20 shrink-0"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
+        className="px-6 pb-5 flex items-center justify-between border-b border-white/5 bg-black/20 shrink-0 pt-16"
       >
         <button onClick={() => { Haptics.light(); onClose(); }} className="text-zinc-500 text-[14px] font-garet font-black uppercase tracking-widest active:text-white transition-colors">
           Back
@@ -220,7 +216,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
         <div className="w-12" />
       </div>
 
-      {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 pb-[450px]">
         {genStatus === 'RUNNING' ? (
           <div className="h-full flex flex-col items-center justify-center text-center gap-12 animate-in fade-in duration-1000">
@@ -273,16 +268,13 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
         )}
       </div>
 
-      {/* Action Footer */}
       {genStatus === 'DONE' && !isQueuePlaying && (
         <div 
           className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-3xl border-t border-white/10 p-5 z-[110]"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 32px)' }}
         >
            <div className="flex flex-col gap-3 max-w-lg mx-auto w-full">
-              {/* Row 1: Play & Save */}
               <div className="flex gap-3">
-                 {/* PLAY BUTTON (Spotify Green) */}
                  <button 
                    onClick={() => { Haptics.medium(); setShowPlayOptions(true); }}
                    className="flex-1 bg-[#1DB954] text-white font-black py-4 rounded-[22px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-2xl border border-white/10 flex items-center justify-center gap-2"
@@ -291,7 +283,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
                     Play
                  </button>
                  
-                 {/* SAVE BUTTON (App Green) */}
                  <button 
                    onClick={() => { Haptics.medium(); setShowSaveOptions(true); }}
                    className="flex-1 bg-palette-teal text-white font-black py-4 rounded-[22px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-2xl border border-white/10 flex items-center justify-center gap-2"
@@ -301,7 +292,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
                  </button>
               </div>
 
-              {/* Row 2: Regenerate (Large Pink) */}
               <button 
                 onClick={startRun}
                 className="w-full bg-palette-pink text-white font-black py-5 rounded-[22px] active:scale-[0.96] transition-all font-garet uppercase tracking-[0.2em] text-[12px] flex items-center justify-center gap-3 shadow-xl shadow-palette-pink/20"
@@ -313,15 +303,12 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
         </div>
       )}
 
-      {/* POPUP: Play Options */}
       {showPlayOptions && (
         <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowPlayOptions(false)}>
            <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
-              {/* Play on Spotify (Solid Spotify Green) */}
               <button onClick={handlePlayOnSpotify} className="w-full bg-[#1DB954] text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all">
                  Play on Spotify
               </button>
-              {/* Push to Device (Solid App Green) */}
               <button 
                 onClick={handlePushToDevice} 
                 className={`w-full py-5 rounded-2xl font-garet font-black uppercase tracking-widest text-xs active:scale-95 transition-all border border-white/10 ${hasDevices ? 'bg-palette-teal text-white shadow-lg shadow-palette-teal/20' : 'bg-zinc-800 border-zinc-700 text-zinc-500'}`}
@@ -333,11 +320,9 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
         </div>
       )}
 
-      {/* POPUP: Save Options */}
       {showSaveOptions && (
         <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowSaveOptions(false)}>
            <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
-              {/* Save to Logs (Solid App Green) */}
               <button 
                 onClick={() => {
                   setPlaylistName(result?.playlistName || "");
@@ -348,7 +333,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
               >
                  Save to Logs
               </button>
-              {/* Save to Spotify (Solid Spotify Green) */}
               <button 
                 onClick={() => {
                   setPlaylistName(result?.playlistName || "");
@@ -364,7 +348,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
         </div>
       )}
 
-      {/* DIALOG: Confirm Name */}
       {showSaveConfirmDialog && (
         <div className="fixed inset-0 z-[250] bg-black/90 backdrop-blur-3xl flex items-center justify-center p-6 animate-in fade-in duration-300">
            <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-md flex flex-col gap-6" onClick={e => e.stopPropagation()}>

@@ -1,5 +1,5 @@
 
-import React, { Component, useState, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import { TabType, RuleSettings, RunOption, RunRecord, SpotifyUser, RunResult, AppConfig } from './types';
 import HomeView from './components/HomeView';
 import HistoryView from './components/HistoryView';
@@ -24,14 +24,12 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-/**
- * ErrorBoundary - Catch and display fatal application crashes.
- * Fixed "Property 'props' does not exist" error by explicitly using Component.
- */
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fixed: Using React.Component explicitly to ensure standard property inheritance and type recognition
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = { hasError: false, error: null };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
@@ -135,12 +133,10 @@ const App: React.FC = () => {
   const handleTabClick = (tab: TabType) => {
     Haptics.light();
     
-    // Clear all active sub-flows and overlays
     setActiveRunOption(null);
     setActiveRunResult(null);
 
     if (tab === activeTab) {
-      // Force reset active tab
       if (tab === 'Home') setHomeKey(prev => prev + 1);
       if (tab === 'Settings') setSettingsKey(prev => prev + 1);
     } else {
@@ -167,7 +163,8 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <InkBackground>
-        <div id="main-content-scroller" className="flex-1 overflow-y-auto w-full relative">
+        {/* pt-16 ensures content clears the iPhone notch area */}
+        <div id="main-content-scroller" className="flex-1 overflow-y-auto w-full relative pt-16">
           {activeTab === 'Home' && (
             <HomeView 
               key={homeKey}
@@ -193,7 +190,6 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* Overlays */}
         {activeRunOption && (
           <RunView 
             option={activeRunOption} 
@@ -208,22 +204,22 @@ const App: React.FC = () => {
         <NowPlayingStrip />
         <ToastOverlay />
 
-        {/* Bottom Navigation */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-black/60 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center px-6 pb-8 pt-4 z-[90]">
+        {/* Compact Bottom Navigation: py-2 padding for absolute minimal height, bottom-0 pins to edge */}
+        <nav className="fixed bottom-0 left-0 right-0 bg-black/60 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center px-6 py-2 z-[90]">
           {(['Home', 'History', 'Settings'] as TabType[]).map((tab) => {
             const isActive = activeTab === tab;
             return (
               <button 
                 key={tab} 
                 onClick={() => handleTabClick(tab)}
-                className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${isActive ? 'scale-110' : 'opacity-40 grayscale'}`}
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${isActive ? 'scale-105' : 'opacity-40 grayscale'}`}
               >
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isActive ? 'bg-palette-pink text-white shadow-lg shadow-palette-pink/30' : 'text-zinc-400'}`}>
-                  {tab === 'Home' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>}
-                  {tab === 'History' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>}
-                  {tab === 'Settings' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>}
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isActive ? 'bg-palette-pink text-white shadow-lg shadow-palette-pink/30' : 'text-zinc-400'}`}>
+                  {tab === 'Home' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>}
+                  {tab === 'History' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>}
+                  {tab === 'Settings' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>}
                 </div>
-                <span className={`text-[9px] font-black uppercase tracking-widest ${isActive ? 'text-palette-pink' : 'text-zinc-600'}`}>
+                <span className={`text-[8px] font-black uppercase tracking-widest ${isActive ? 'text-palette-pink' : 'text-zinc-600'}`}>
                   {tab}
                 </span>
               </button>

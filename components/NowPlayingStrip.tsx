@@ -136,8 +136,8 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Black Jelly Glass Container */}
-      <div className="bg-black/60 backdrop-blur-[40px] border border-white/10 rounded-[34px] overflow-hidden flex flex-col shadow-[0_32px_64px_-16px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.15)] transition-all active:scale-[0.99]">
+      {/* Black Jelly Glass Container: Reduced background opacity to 25% for better transparency */}
+      <div className="bg-black/25 backdrop-blur-[40px] border border-white/10 rounded-[34px] overflow-hidden flex flex-col shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)] transition-all active:scale-[0.99]">
         {/* Progress Bar */}
         <div className="w-full h-[3px] bg-white/5">
           <div 
@@ -158,15 +158,15 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
           </div>
           
           <div className="flex-1 min-w-0">
-            <h4 className="text-[14px] font-garet font-black text-white truncate leading-tight tracking-tight">
+            <h4 className="text-[14px] font-garet font-black text-white truncate leading-tight tracking-tight drop-shadow-sm">
               {track.name}
             </h4>
             <div className="flex items-center gap-1.5 mt-1.5">
-              <span className="text-[11px] text-zinc-400 font-bold truncate max-w-[55%]">
+              <span className="text-[11px] text-zinc-300 font-bold truncate max-w-[55%] drop-shadow-sm">
                 {track.artists?.[0]?.name || track.show?.name || 'Spotify'}
               </span>
-              <span className="text-zinc-800 font-black text-[8px] shrink-0">•</span>
-              <span className="text-[10px] text-palette-teal font-black uppercase tracking-[0.1em] truncate">
+              <span className="text-white/20 font-black text-[8px] shrink-0">•</span>
+              <span className="text-[10px] text-palette-teal font-black uppercase tracking-[0.1em] truncate drop-shadow-sm">
                 {deviceName}
               </span>
             </div>
@@ -177,7 +177,7 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
             <button 
               onClick={handlePrevious}
               aria-label="Previous Track"
-              className="w-10 h-10 flex items-center justify-center text-white bg-white/5 border border-white/5 hover:bg-white/10 active:scale-90 transition-all rounded-full"
+              className="w-10 h-10 flex items-center justify-center text-white bg-black/20 border border-white/5 hover:bg-white/10 active:scale-90 transition-all rounded-full"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
             </button>
@@ -185,7 +185,7 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
             <button 
               onClick={handleTogglePlay}
               aria-label={isPlaying ? "Pause" : "Play"}
-              className="w-12 h-12 flex items-center justify-center text-white active:scale-90 transition-transform rounded-full bg-white/10 border border-white/5 shadow-inner"
+              className="w-12 h-12 flex items-center justify-center text-white active:scale-90 transition-transform rounded-full bg-black/20 border border-white/5 shadow-inner"
             >
               {isPlaying ? (
                 <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
@@ -197,7 +197,7 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
             <button 
               onClick={handleNext}
               aria-label="Next Track"
-              className="w-10 h-10 flex items-center justify-center text-white bg-white/5 border border-white/5 hover:bg-white/10 active:scale-90 transition-all rounded-full"
+              className="w-10 h-10 flex items-center justify-center text-white bg-black/20 border border-white/5 hover:bg-white/10 active:scale-90 transition-all rounded-full"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
             </button>
