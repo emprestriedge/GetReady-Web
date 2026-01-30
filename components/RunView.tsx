@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RunOption, RuleSettings, RunResult, RunOptionType, SpotifyDevice, Track, PodcastShowCandidate } from '../types';
 import { RuleOverrideStore } from '../services/ruleOverrideStore';
@@ -35,15 +34,20 @@ const TrackRow: React.FC<{
 }> = ({ track, isActive, onPlay, onStatusToggle, onBlock }) => {
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [lastTap, setLastTap] = useState(0);
   const touchStartX = useRef<number | null>(null);
   const longPressTimer = useRef<number | null>(null);
   const SWIPE_LIMIT = -100;
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    
+    // Interaction: Long Press to toggle 'Saved' status
     longPressTimer.current = window.setTimeout(() => {
       onStatusToggle(track);
       Haptics.impact();
+      // Ensure we don't trigger play on release
+      setLastTap(0);
     }, 600);
   };
 
@@ -81,58 +85,68 @@ const TrackRow: React.FC<{
     touchStartX.current = null;
   };
 
+  // Interaction: Double Tap to Play
+  const handleInteraction = () => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+    if (now - lastTap < DOUBLE_TAP_DELAY) {
+      onPlay(track);
+      setLastTap(0); // Reset after success
+    } else {
+      setLastTap(now);
+    }
+  };
+
   return (
-    <div className="relative overflow-hidden bg-red-600">
-      {/* Block Background layer */}
-      <div className="absolute inset-0 flex items-center justify-end px-6">
-        <span className="text-white font-black text-[10px] uppercase tracking-widest">Block</span>
+    <div className="relative overflow-hidden bg-red-600 first:rounded-t-[32px] last:rounded-b-[32px]">
+      {/* Hidden Block Layer - Re-asserted as the only red area in the UI */}
+      <div className="absolute inset-0 flex items-center justify-end px-8">
+        <span className="text-white font-black text-[10px] uppercase tracking-[0.3em] drop-shadow-md">Block</span>
       </div>
 
       <button 
-        onClick={() => onPlay(track)}
+        onClick={handleInteraction}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={{ 
           touchAction: 'pan-y',
           transform: `translateX(${swipeX}px)`,
-          transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.23, 1, 0.32, 1)'
+          transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.23, 1, 0.32, 1)'
         }}
-        /* VISUAL REDESIGN: Using obsidian glass background with dynamic highlight for active state */
-        className={`w-full flex items-center gap-4 p-4 transition-all group text-left select-none relative z-10 border-b border-palette-gold/5 ${
+        /* Obsidian Jelly Glass Styling: Transparent black, blur, and subtle purple/teal accents */
+        className={`w-full flex items-center gap-4 p-5 transition-all group text-left select-none relative z-10 border-b border-[#6D28D9]/15 ${
           isActive 
-            ? 'bg-palette-teal/10 border-palette-teal/30 shadow-[inset_0_0_20px_rgba(45,185,177,0.15)]' 
-            : 'bg-[#0a0a0a]/80 backdrop-blur-xl hover:bg-white/5 active:bg-palette-teal/5'
+            ? 'bg-palette-teal/15 border-palette-teal/30 shadow-[inset_0_0_30px_rgba(45,185,177,0.1)]' 
+            : 'bg-[#0c0c0c]/70 backdrop-blur-3xl hover:bg-white/5 active:bg-palette-teal/5'
         }`}
       >
-        <div className="relative shrink-0 flex items-center">
+        <div className="relative shrink-0 flex items-center justify-center min-w-[24px]">
           {isActive ? (
-            <div className="w-4.5 h-4.5 mr-2 sm:mr-3 flex items-center justify-center">
-              <div className="flex gap-0.5 items-end h-3">
-                 <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.6s_ease-in-out_infinite]" style={{ height: '100%' }} />
-                 <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.8s_ease-in-out_infinite]" style={{ height: '60%' }} />
-                 <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.7s_ease-in-out_infinite]" style={{ height: '85%' }} />
-              </div>
+            /* Teal frequency indicator for active track (complimentary to app palette) */
+            <div className="flex gap-0.5 items-end h-3.5 mb-1">
+               <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.6s_ease-in-out_infinite]" style={{ height: '100%' }} />
+               <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.8s_ease-in-out_infinite]" style={{ height: '60%' }} />
+               <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.7s_ease-in-out_infinite]" style={{ height: '85%' }} />
             </div>
           ) : (
-            <StatusAsterisk status={track.status} />
+            <StatusAsterisk status={track.status === 'liked' ? 'liked' : 'none'} />
           )}
         </div>
 
-        <div className={`w-11 h-11 rounded-xl bg-zinc-900 overflow-hidden shrink-0 border relative pointer-events-none transition-colors ${isActive ? 'border-palette-teal/40' : 'border-white/10'}`}>
+        <div className={`w-12 h-12 rounded-2xl bg-zinc-900 overflow-hidden shrink-0 border relative pointer-events-none transition-all duration-500 ${isActive ? 'border-palette-teal/50 scale-105 shadow-[0_0_15px_rgba(45,185,177,0.3)]' : 'border-white/10'}`}>
           <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
           {isActive && <div className="absolute inset-0 bg-palette-teal/10 animate-pulse" />}
         </div>
 
         <div className="flex-1 min-w-0 pointer-events-none">
-          <h4 className={`text-[16px] font-gurmukhi truncate leading-tight transition-colors ${isActive ? 'text-palette-teal' : 'text-[#D1F2EB] group-active:text-palette-teal'}`}>
+          <h4 className={`text-[17px] font-gurmukhi truncate leading-tight transition-colors duration-300 ${isActive ? 'text-palette-teal' : 'text-[#D1F2EB] group-active:text-palette-teal'}`}>
             {track.title}
           </h4>
-          <p className="text-[11px] text-zinc-500 font-medium truncate mt-0.5 font-garet">{track.artist}</p>
+          <p className="text-[12px] text-zinc-500 font-medium truncate mt-1 font-garet">{track.artist}</p>
         </div>
         
-        {/* Visual Cue for Active/Swiping */}
-        <div className={`w-1.5 h-1.5 rounded-full transition-colors ${isActive ? 'bg-palette-teal shadow-[0_0_8px_rgba(45,185,177,1)]' : 'bg-zinc-800'}`} />
+        <div className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${isActive ? 'bg-palette-teal scale-125 shadow-[0_0_10px_rgba(45,185,177,1)]' : 'bg-zinc-800'}`} />
       </button>
     </div>
   );
@@ -165,7 +179,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     if (!initialResult && genStatus === 'IDLE') startRun();
     checkDeviceStatus();
 
-    // Polling for active track to highlight in list
+    // Poll Spotify to keep track list in sync with actual playback
     const pollPlayback = async () => {
       try {
         const state = await SpotifyApi.request('/me/player');
@@ -268,8 +282,8 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     const currentTrack = result.tracks.find(t => t.uri === track.uri);
     if (!currentTrack) return;
     
-    const nextStatus: Track['status'] = currentTrack.status === 'none' ? 'liked' : 
-                                       currentTrack.status === 'liked' ? 'gem' : 'none';
+    // Interaction Refactor: Simplified toggle between Pink (Saved) and Grey (Not Saved)
+    const nextStatus: Track['status'] = currentTrack.status === 'liked' ? 'none' : 'liked';
 
     setResult(prev => {
       if (!prev || !prev.tracks) return prev;
@@ -284,19 +298,12 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
 
     try {
       if (nextStatus === 'liked') {
-        await SpotifyDataService.removeTrackFromGems(track.uri).catch(() => {});
-        await SpotifyDataService.setTrackLiked(trackId, true);
-        toastService.show("Added to Liked Songs", "success");
-      } else if (nextStatus === 'gem') {
-        await SpotifyDataService.setTrackLiked(trackId, false).catch(() => {});
+        // Logic change: When icon turns Pink, add track specifically to the 'GetReady Gems' playlist
         await SpotifyDataService.addTrackToGems(track.uri);
-        toastService.show("Added to Gems playlist", "success");
+        toastService.show("Added to GetReady Gems", "success");
       } else {
-        await Promise.all([
-          SpotifyDataService.setTrackLiked(trackId, false),
-          SpotifyDataService.removeTrackFromGems(track.uri)
-        ]);
-        toastService.show("Removed from collections", "info");
+        await SpotifyDataService.removeTrackFromGems(track.uri);
+        toastService.show("Removed from Gems", "info");
       }
     } catch (e: any) {
       toastService.show("Catalog sync failed", "error");
@@ -382,79 +389,85 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   }, [result]);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-300 overflow-hidden text-[#A9E8DF]">
-      <div className="px-6 pb-5 flex items-center justify-between border-b border-white/5 bg-black/20 shrink-0 pt-16">
-        <button onClick={() => { Haptics.light(); onClose(); }} className="text-zinc-500 text-[14px] font-garet font-black uppercase tracking-widest active:text-white transition-colors">
+    <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-500 overflow-hidden text-[#A9E8DF]">
+      {/* Dynamic Header */}
+      <div className="px-6 pb-6 flex items-center justify-between border-b border-white/5 bg-black/20 shrink-0 pt-16">
+        <button onClick={() => { Haptics.light(); onClose(); }} className="text-palette-pink text-[14px] font-black uppercase tracking-[0.2em] active:opacity-50 transition-opacity">
           Back
         </button>
-        <span className="font-black text-[10px] uppercase tracking-[0.4em] text-zinc-600">Active Queue</span>
+        <span className="font-black text-[10px] uppercase tracking-[0.5em] text-zinc-600">Active Queue</span>
         <div className="w-12" />
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 pb-[450px]">
+      <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-8 pb-[500px]">
         {genStatus === 'RUNNING' ? (
           <div className="h-full flex flex-col items-center justify-center text-center gap-12 animate-in fade-in duration-1000">
              <div className="relative">
-                <div className="w-16 h-16 border-[4px] border-palette-pink/10 rounded-full animate-pulse-soft" />
-                <div className="absolute inset-0 w-16 h-16 border-[4px] border-palette-pink border-t-transparent rounded-full animate-spin duration-700" />
+                <div className="w-20 h-20 border-[5px] border-[#6D28D9]/10 rounded-full animate-pulse-soft" />
+                <div className="absolute inset-0 w-20 h-20 border-[5px] border-[#6D28D9] border-t-transparent rounded-full animate-spin duration-700" />
              </div>
-             <h2 className="text-4xl font-mango text-[#D1F2EB] header-ombre tracking-tight">Compiling...</h2>
+             <h2 className="text-5xl font-mango text-[#D1F2EB] header-ombre tracking-tight">Compiling...</h2>
           </div>
         ) : genStatus === 'ERROR' ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 gap-8">
             <p className="text-white font-garet font-bold text-center text-lg">{error}</p>
-            <button onClick={startRun} className="bg-zinc-800 text-white font-black px-10 py-5 rounded-[24px] active:scale-95 transition-all font-garet uppercase tracking-widest text-[12px]">Retry Build</button>
+            <button onClick={startRun} className="bg-[#6D28D9] text-white font-black px-12 py-5 rounded-[26px] active:scale-95 transition-all font-garet uppercase tracking-widest text-[12px] shadow-xl shadow-[#6D28D9]/30">Retry Build</button>
           </div>
         ) : (
           <div className="flex flex-col gap-6">
-             <header className="flex flex-col gap-1 px-2 stagger-entry stagger-1">
-              <h2 className="text-5xl leading-none font-mango header-ombre tracking-tighter">{option.name}</h2>
-              <div className="flex items-center gap-3 mt-3">
-                <div className="bg-palette-gold/10 border border-palette-gold/20 px-3 py-1 rounded-xl">
+             <header className="flex flex-col gap-1 px-4 stagger-entry stagger-1">
+              <h2 className="text-6xl leading-none font-mango header-ombre tracking-tighter drop-shadow-2xl">{option.name}</h2>
+              <div className="flex items-center gap-3 mt-4">
+                <div className="bg-palette-gold/10 border border-palette-gold/30 px-3 py-1 rounded-xl">
                   <span className="text-palette-gold text-[10px] font-black uppercase tracking-[0.15em]">{result?.tracks?.length || 0} Tracks</span>
                 </div>
-                <span className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em] font-garet">{totalDurationStr}</span>
+                <div className="bg-[#6D28D9]/10 border border-[#6D28D9]/30 px-3 py-1 rounded-xl">
+                  <span className="text-[#8B5CF6] text-[10px] font-black uppercase tracking-[0.15em]">{totalDurationStr}</span>
+                </div>
               </div>
             </header>
 
-            {/* VISUAL REDESIGN: Obsidian Jelly Glass list container with gold glow */}
-            <div className="bg-[#0f0f0f]/60 backdrop-blur-2xl rounded-[32px] overflow-hidden divide-y divide-palette-gold/5 border border-palette-gold/15 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_20px_rgba(197,160,77,0.05)] stagger-entry stagger-2">
-              {result?.tracks?.map((track, i) => (
-                <TrackRow 
-                  key={track.uri + i} 
-                  track={track} 
-                  isActive={currentPlayingUri === track.uri}
-                  onPlay={handlePlayTrack} 
-                  onStatusToggle={handleToggleStatus} 
-                  onBlock={handleBlockTrack} 
-                />
-              ))}
+            {/* List Container: Obsidian Jelly Glass with Purple Dividers */}
+            <div className="bg-[#0c0c0c]/75 backdrop-blur-3xl rounded-[32px] overflow-hidden border border-white/10 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.8),0_0_40px_rgba(109,40,217,0.05)] stagger-entry stagger-2">
+              <div className="divide-y divide-[#6D28D9]/15">
+                {result?.tracks?.map((track, i) => (
+                  <TrackRow 
+                    key={track.uri + i} 
+                    track={track} 
+                    isActive={currentPlayingUri === track.uri}
+                    onPlay={handlePlayTrack} 
+                    onStatusToggle={handleToggleStatus} 
+                    onBlock={handleBlockTrack} 
+                  />
+                ))}
+              </div>
             </div>
           </div>
         )}
       </div>
 
+      {/* Persistent Action Bar */}
       {genStatus === 'DONE' && !isQueuePlaying && (
         <div 
-          className="fixed bottom-[56px] left-0 right-0 bg-black/80 backdrop-blur-3xl border-t border-white/10 p-5 z-[110]"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}
+          className="fixed bottom-[56px] left-0 right-0 bg-black/70 backdrop-blur-[60px] border-t border-white/10 p-6 z-[110]"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
         >
-           <div className="flex flex-col gap-3 max-w-lg mx-auto w-full">
-              <div className="flex gap-3">
+           <div className="flex flex-col gap-4 max-w-lg mx-auto w-full">
+              <div className="flex gap-4">
                  <button 
                    onClick={() => { Haptics.medium(); setShowPlayOptions(true); }}
-                   className="relative overflow-hidden flex-1 bg-gradient-to-br from-[#1DB954] to-[#1ed760] text-white font-black py-4 rounded-[22px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-xl shadow-[#1DB954]/20 border border-white/20 flex items-center justify-center gap-2 group"
+                   className="relative overflow-hidden flex-1 bg-gradient-to-br from-[#1DB954] to-[#1ed760] text-white font-black py-4 rounded-[24px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.25em] text-[14px] shadow-xl shadow-[#1DB954]/30 border border-white/20 flex items-center justify-center gap-3 group"
                  >
-                    <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
+                    <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
                     <svg className="w-5 h-5 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                     <span className="relative z-10">Play</span>
                  </button>
                  
                  <button 
                    onClick={() => { Haptics.medium(); setShowSaveOptions(true); }}
-                   className="relative overflow-hidden flex-1 bg-gradient-to-br from-[#2DB9B1] to-[#40D9D0] text-white font-black py-4 rounded-[22px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-xl shadow-palette-teal/20 border border-white/20 flex items-center justify-center gap-2 group"
+                   className="relative overflow-hidden flex-1 bg-gradient-to-br from-[#2DB9B1] to-[#40D9D0] text-white font-black py-4 rounded-[24px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.25em] text-[14px] shadow-xl shadow-palette-teal/30 border border-white/20 flex items-center justify-center gap-3 group"
                  >
-                    <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
+                    <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
                     <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
                     <span className="relative z-10">Save</span>
                  </button>
@@ -462,48 +475,49 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
 
               <button 
                 onClick={startRun}
-                className="relative overflow-hidden w-full bg-gradient-to-br from-[#FF007A] to-[#FF4D9F] text-white font-black py-5 rounded-[22px] active:scale-[0.96] transition-all font-garet uppercase tracking-[0.2em] text-[12px] flex items-center justify-center gap-3 shadow-2xl shadow-palette-pink/30 border border-white/20"
+                className="relative overflow-hidden w-full bg-gradient-to-br from-[#FF007A] to-[#FF4D9F] text-white font-black py-5 rounded-[24px] active:scale-[0.96] transition-all font-garet uppercase tracking-[0.25em] text-[13px] flex items-center justify-center gap-4 shadow-2xl shadow-palette-pink/30 border border-white/20"
               >
-                 <div className="absolute top-1 left-2 w-[92%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
-                 <svg className="w-4 h-4 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                 <span className="relative z-10">Regenerate</span>
+                 <div className="absolute top-1.5 left-3 w-[92%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
+                 <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                 <span className="relative z-10">Regenerate Mix</span>
               </button>
            </div>
         </div>
       )}
 
+      {/* Picker Modals */}
       {showPlayOptions && (
-        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowPlayOptions(false)}>
-           <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
-              <button onClick={handlePlayOnSpotify} className="relative overflow-hidden w-full bg-[#1DB954] text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all">
-                 <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
+        <div className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in duration-400" onClick={() => setShowPlayOptions(false)}>
+           <div className="bg-zinc-900 border border-white/10 rounded-[44px] p-8 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
+              <button onClick={handlePlayOnSpotify} className="relative overflow-hidden w-full bg-[#1DB954] text-white font-black py-6 rounded-3xl font-garet uppercase tracking-widest text-[13px] active:scale-95 transition-all">
+                 <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
                  Play on Spotify
               </button>
               <button 
                 onClick={handlePushToDevice} 
-                className={`relative overflow-hidden w-full py-5 rounded-2xl font-garet font-black uppercase tracking-widest text-xs active:scale-95 transition-all border border-white/10 ${hasDevices ? 'bg-palette-teal text-white shadow-lg shadow-palette-teal/20' : 'bg-zinc-800 border-zinc-700 text-zinc-500'}`}
+                className={`relative overflow-hidden w-full py-6 rounded-3xl font-garet font-black uppercase tracking-widest text-[13px] active:scale-95 transition-all border border-white/10 ${hasDevices ? 'bg-palette-teal text-white shadow-lg shadow-palette-teal/20' : 'bg-zinc-800 border-zinc-700 text-zinc-500'}`}
               >
-                 {hasDevices && <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />}
+                 {hasDevices && <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />}
                  Push to Device
               </button>
-              <button onClick={() => setShowPlayOptions(false)} className="w-full py-2 text-zinc-600 font-black uppercase tracking-widest text-[10px] mt-2">Cancel</button>
+              <button onClick={() => setShowPlayOptions(false)} className="w-full py-3 text-zinc-600 font-black uppercase tracking-widest text-[11px] mt-4">Cancel</button>
            </div>
         </div>
       )}
 
       {showSaveOptions && (
-        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowSaveOptions(false)}>
-           <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in duration-400" onClick={() => setShowSaveOptions(false)}>
+           <div className="bg-zinc-900 border border-white/10 rounded-[44px] p-8 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
               <button 
                 onClick={() => {
                   setPlaylistName(result?.playlistName || "");
                   setShowSaveConfirmDialog('logs');
                   setShowSaveOptions(false);
                 }} 
-                className="relative overflow-hidden w-full bg-palette-teal text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all shadow-lg shadow-palette-teal/10"
+                className="relative overflow-hidden w-full bg-palette-teal text-white font-black py-6 rounded-3xl font-garet uppercase tracking-widest text-[13px] active:scale-95 transition-all shadow-lg shadow-palette-teal/10"
               >
-                 <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
-                 Save to Logs
+                 <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
+                 Save to Internal Logs
               </button>
               <button 
                 onClick={() => {
@@ -511,42 +525,42 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                   setShowSaveConfirmDialog('spotify');
                   setShowSaveOptions(false);
                 }} 
-                className="relative overflow-hidden w-full bg-[#1DB954] text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all shadow-lg shadow-[#1DB954]/10"
+                className="relative overflow-hidden w-full bg-[#1DB954] text-white font-black py-6 rounded-3xl font-garet uppercase tracking-widest text-[13px] active:scale-95 transition-all shadow-lg shadow-[#1DB954]/10"
               >
-                 <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
-                 Save to Spotify
+                 <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
+                 Save to Spotify Catalog
               </button>
-              <button onClick={() => setShowSaveOptions(false)} className="w-full py-2 text-zinc-600 font-black uppercase tracking-widest text-[10px] mt-2">Cancel</button>
+              <button onClick={() => setShowSaveOptions(false)} className="w-full py-3 text-zinc-600 font-black uppercase tracking-widest text-[11px] mt-4">Cancel</button>
            </div>
         </div>
       )}
 
       {showSaveConfirmDialog && (
-        <div className="fixed inset-0 z-[250] bg-black/90 backdrop-blur-3xl flex items-center justify-center p-6 animate-in fade-in duration-300">
-           <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-md flex flex-col gap-6" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[250] bg-black/95 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in duration-400">
+           <div className="bg-zinc-900 border border-white/10 rounded-[44px] p-10 w-full max-w-md flex flex-col gap-8 shadow-2xl" onClick={e => e.stopPropagation()}>
               <header>
                  <h2 className="text-4xl font-mango text-palette-teal leading-none">Sync Options</h2>
-                 <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mt-2">Target: {showSaveConfirmDialog === 'logs' ? 'Internal Logs' : 'Spotify Catalog'}</p>
+                 <p className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] mt-3">Target: {showSaveConfirmDialog === 'logs' ? 'Internal Build Log' : 'Spotify Catalog'}</p>
               </header>
-              <div className="flex flex-col gap-2">
-                 <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-1">Playlist Name</label>
+              <div className="flex flex-col gap-3">
+                 <label className="text-[11px] font-black text-zinc-600 uppercase tracking-widest px-1">Deployment Name</label>
                  <input 
                    type="text" 
                    value={playlistName}
                    onChange={e => setPlaylistName(e.target.value)}
-                   className="bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-[#D1F2EB] font-garet font-bold outline-none focus:border-palette-pink transition-all"
+                   className="bg-black/40 border border-white/10 rounded-2xl px-6 py-5 text-[#D1F2EB] font-garet font-bold outline-none focus:border-palette-pink transition-all w-full"
                  />
               </div>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-4">
                  <button 
                    onClick={handleConfirmSave} 
                    disabled={isSaving || !playlistName} 
-                   className={`relative overflow-hidden w-full text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all ${showSaveConfirmDialog === 'spotify' ? 'bg-[#1DB954]' : 'bg-palette-teal'}`}
+                   className={`relative overflow-hidden w-full text-white font-black py-6 rounded-3xl font-garet uppercase tracking-widest text-[13px] active:scale-95 transition-all ${showSaveConfirmDialog === 'spotify' ? 'bg-[#1DB954]' : 'bg-palette-teal'}`}
                  >
-                    <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
-                    {isSaving ? 'Processing...' : 'Confirm Sync'}
+                    <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
+                    {isSaving ? 'Establishing Link...' : 'Confirm Synchronization'}
                  </button>
-                 <button onClick={() => setShowSaveConfirmDialog(null)} className="w-full py-2 text-zinc-600 font-black uppercase tracking-widest text-[10px]">Cancel</button>
+                 <button onClick={() => setShowSaveConfirmDialog(null)} className="w-full py-2 text-zinc-600 font-black uppercase tracking-widest text-[11px]">Discard</button>
               </div>
            </div>
         </div>

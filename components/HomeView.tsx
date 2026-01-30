@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { RunOption, RunOptionType, VibeType, SmartMixPlan, RuleSettings } from '../types';
 import { SMART_MIX_MODES, MUSIC_BUTTONS, PODCAST_OPTIONS } from '../constants';
@@ -15,10 +14,8 @@ interface HomeViewProps {
 type HomeViewMode = 'root' | 'music' | 'podcast';
 
 export const StatusAsterisk: React.FC<{ status?: 'liked' | 'gem' | 'none' }> = ({ status = 'none' }) => {
-  const color = status === 'liked' ? 'text-palette-pink' : status === 'gem' ? 'text-spotify-green' : 'text-zinc-600';
-  
-  // Custom green for Gems
-  const finalColor = status === 'gem' ? '#1DB954' : status === 'liked' ? '#FF007A' : '#555555';
+  // Simplified logic: Pink for Saved (liked/gem), Grey for none.
+  const finalColor = (status === 'liked' || status === 'gem') ? '#FF007A' : '#555555';
 
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0 mr-2 sm:mr-3 mt-1" style={{ color: finalColor }}>
@@ -270,7 +267,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
           <button onClick={handleGenerateSmartMix} disabled={loading} className="w-full relative overflow-hidden bg-gradient-to-br from-[#FF007A] via-[#FF1A8B] to-[#FF4D9F] py-5 rounded-[26px] flex items-center justify-center gap-3 active:scale-[0.98] transition-all border border-white/15 shadow-xl shadow-palette-pink/30">
             <div className="absolute top-1 left-2 w-[90%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
             <div className="relative z-10 flex items-center gap-3">
-              {loading ? ( <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" /> ) : ( <LightningIcon className="w-7 h-7 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" /> )}
+              {loading ? ( <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" /> ) : ( <LightningIcon className="w-7 h-7 text-white drop-shadow-[0_2px_4_rgba(0,0,0,0.3)]" /> )}
               <span className="text-[14px] font-black uppercase tracking-[0.2em] text-white">Generate Mix</span>
             </div>
           </button>
