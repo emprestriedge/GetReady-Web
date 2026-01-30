@@ -175,7 +175,14 @@ const App: React.FC = () => {
     <ErrorBoundary>
       <InkBackground>
         <ToastOverlay />
-        <div id="main-content-scroller" className="flex-1 overflow-y-auto w-full relative pt-16">
+        <div 
+          id="main-content-scroller" 
+          className="flex-1 overflow-y-auto w-full relative scroll-smooth"
+          style={{ 
+            paddingTop: 'calc(env(safe-area-inset-top, 0px) + 52px)',
+            paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 180px)' // Clear Mini-player + Nav bar
+          }}
+        >
           {activeTab === 'Home' && (
             <HomeView 
               key={homeKey}

@@ -38,7 +38,6 @@ const TrackRow: React.FC<{
   const longPressTimerRef = useRef<number | null>(null);
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    // Start long press timer
     longPressTimerRef.current = window.setTimeout(() => {
       Haptics.impact();
       onLike(track);
@@ -51,7 +50,6 @@ const TrackRow: React.FC<{
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
       
-      // Handle Double Tap for Play
       const now = Date.now();
       const delay = 300;
       if (now - lastTapRef.current < delay) {
@@ -95,16 +93,13 @@ const TrackRow: React.FC<{
           className="w-full flex items-center gap-4 p-5 active:bg-white/5 transition-all group text-left select-none cursor-pointer"
         >
           <StatusAsterisk colorClass={asteriskColor} />
-          
           <div className="w-12 h-12 rounded-xl bg-black overflow-hidden shrink-0 border border-white/10 relative pointer-events-none shadow-lg">
             <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
           </div>
-          
           <div className="flex-1 min-w-0 pointer-events-none">
             <h4 className="text-[17px] font-gurmukhi text-[#D1F2EB] group-active:text-palette-teal truncate leading-tight tracking-tight">{track.title}</h4>
             <p className="text-[12px] text-zinc-500 font-medium truncate mt-0.5 font-garet">{track.artist}</p>
           </div>
-          
           {track.isNew && (
             <div className="w-6 h-6 flex items-center justify-center rounded-full bg-palette-pink/20 text-palette-pink">
               <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
@@ -188,7 +183,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         const updated = prev.tracks.map((t, idx) => ({ 
           ...t, 
           isLiked: likedMap[idx],
-          isGem: t.isNew || false // In this prototype, 'New' tracks from engine are treated as 'Gems'
+          isGem: t.isNew || false 
         }));
         return { ...prev, tracks: updated };
       });
@@ -248,7 +243,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     const isCurrentlyLiked = track.isLiked;
 
     try {
-      // Optimistic UI Update
       setResult(prev => {
         if (!prev || !prev.tracks) return prev;
         return {
@@ -265,7 +259,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         toastService.show("Saved to Liked Songs", "success");
       }
     } catch (e: any) {
-      // Rollback on error
       setResult(prev => {
         if (!prev || !prev.tracks) return prev;
         return {
@@ -365,9 +358,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-300 overflow-hidden text-[#A9E8DF]">
-      <div 
-        className="px-6 pb-5 flex items-center justify-between border-b border-white/5 bg-black/20 shrink-0 pt-16"
-      >
+      <div className="px-6 pb-5 flex items-center justify-between border-b border-white/5 bg-black/20 shrink-0 pt-16">
         <button onClick={() => { Haptics.light(); onClose(); }} className="text-zinc-500 text-[14px] font-garet font-black uppercase tracking-widest active:text-white transition-colors">
           Back
         </button>
@@ -423,31 +414,34 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
           className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-3xl border-t border-white/10 p-5 z-[110]"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 32px)' }}
         >
-           <div className="flex flex-col gap-3 max-w-lg mx-auto w-full">
+           <div className="flex flex-col gap-4 max-w-lg mx-auto w-full">
               <div className="flex gap-3">
                  <button 
                    onClick={() => { Haptics.medium(); setShowPlayOptions(true); }}
-                   className="flex-1 bg-[#1DB954] text-white font-black py-4 rounded-[22px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-2xl border border-white/10 flex items-center justify-center gap-2"
+                   className="flex-1 relative overflow-hidden bg-gradient-to-br from-[#1DB954] via-[#1ED760] to-[#1DB954] text-white font-black py-4.5 rounded-[22px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-2xl shadow-[#1DB954]/30 border border-white/15 flex items-center justify-center gap-2"
                  >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                    Play
+                    <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
+                    <svg className="w-5 h-5 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <span className="relative z-10">Play</span>
                  </button>
                  
                  <button 
                    onClick={() => { Haptics.medium(); setShowSaveOptions(true); }}
-                   className="flex-1 bg-palette-teal text-white font-black py-4 rounded-[22px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-2xl border border-white/10 flex items-center justify-center gap-2"
+                   className="flex-1 relative overflow-hidden bg-gradient-to-br from-[#19A28E] via-[#2DB9B1] to-[#40D9D0] text-white font-black py-4.5 rounded-[22px] active:scale-[0.98] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-2xl shadow-[#2DB9B1]/30 border border-white/15 flex items-center justify-center gap-2"
                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
-                    Save
+                    <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
+                    <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+                    <span className="relative z-10">Save</span>
                  </button>
               </div>
 
               <button 
                 onClick={startRun}
-                className="w-full bg-palette-pink text-white font-black py-5 rounded-[22px] active:scale-[0.96] transition-all font-garet uppercase tracking-[0.2em] text-[12px] flex items-center justify-center gap-3 shadow-xl shadow-palette-pink/20"
+                className="w-full relative overflow-hidden bg-gradient-to-br from-[#FF007A] via-[#FF1A8B] to-[#FF4D9F] text-white font-black py-5 rounded-[22px] active:scale-[0.96] transition-all font-garet uppercase tracking-[0.2em] text-[12px] flex items-center justify-center gap-3 shadow-2xl shadow-palette-pink/40 border border-white/15"
               >
-                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                 Regenerate
+                 <div className="absolute top-1 left-2 w-[90%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
+                 <svg className="w-4 h-4 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                 <span className="relative z-10">Regenerate</span>
               </button>
            </div>
         </div>
@@ -456,8 +450,9 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       {showPlayOptions && (
         <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowPlayOptions(false)}>
            <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
-              <button onClick={handlePlayOnSpotify} className="w-full bg-[#1DB954] text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all">
-                 Play on Spotify
+              <button onClick={handlePlayOnSpotify} className="w-full relative overflow-hidden bg-gradient-to-br from-[#1DB954] via-[#1ED760] to-[#1DB954] text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all shadow-xl shadow-[#1DB954]/20 border border-white/15">
+                 <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
+                 <span className="relative z-10">Play on Spotify</span>
               </button>
               <button 
                 onClick={handlePushToDevice} 
@@ -479,9 +474,10 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                   setShowSaveConfirmDialog('logs');
                   setShowSaveOptions(false);
                 }} 
-                className="w-full bg-palette-teal text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all shadow-lg shadow-palette-teal/10"
+                className="w-full relative overflow-hidden bg-gradient-to-br from-[#19A28E] via-[#2DB9B1] to-[#40D9D0] text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all shadow-lg shadow-palette-teal/20 border border-white/15"
               >
-                 Save to Logs
+                 <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
+                 <span className="relative z-10">Save to Logs</span>
               </button>
               <button 
                 onClick={() => {
@@ -489,9 +485,10 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                   setShowSaveConfirmDialog('spotify');
                   setShowSaveOptions(false);
                 }} 
-                className="w-full bg-[#1DB954] text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all shadow-lg shadow-[#1DB954]/10"
+                className="w-full relative overflow-hidden bg-gradient-to-br from-[#1DB954] via-[#1ED760] to-[#1DB954] text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all shadow-lg shadow-[#1DB954]/20 border border-white/15"
               >
-                 Save to Spotify
+                 <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
+                 <span className="relative z-10">Save to Spotify</span>
               </button>
               <button onClick={() => setShowSaveOptions(false)} className="w-full py-2 text-zinc-600 font-black uppercase tracking-widest text-[10px] mt-2">Cancel</button>
            </div>
@@ -500,9 +497,9 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
 
       {showSaveConfirmDialog && (
         <div className="fixed inset-0 z-[250] bg-black/90 backdrop-blur-3xl flex items-center justify-center p-6 animate-in fade-in duration-300">
-           <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-md flex flex-col gap-6" onClick={e => e.stopPropagation()}>
+           <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-md flex flex-col gap-6 shadow-2xl" onClick={e => e.stopPropagation()}>
               <header>
-                 <h2 className="text-4xl font-mango text-palette-teal leading-none">Sync Options</h2>
+                 <h2 className="text-4xl font-mango text-[#A9E8DF] leading-none">Sync Options</h2>
                  <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mt-2">Target: {showSaveConfirmDialog === 'logs' ? 'Internal Logs' : 'Spotify Catalog'}</p>
               </header>
               <div className="flex flex-col gap-2">
@@ -518,9 +515,10 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                  <button 
                    onClick={handleConfirmSave} 
                    disabled={isSaving || !playlistName} 
-                   className={`w-full text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all ${showSaveConfirmDialog === 'spotify' ? 'bg-[#1DB954]' : 'bg-palette-teal'}`}
+                   className={`w-full relative overflow-hidden text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all border border-white/15 shadow-xl ${showSaveConfirmDialog === 'spotify' ? 'bg-gradient-to-br from-[#1DB954] via-[#1ED760] to-[#1DB954] shadow-[#1DB954]/20' : 'bg-gradient-to-br from-[#19A28E] via-[#2DB9B1] to-[#40D9D0] shadow-palette-teal/20'}`}
                  >
-                    {isSaving ? 'Processing...' : 'Confirm Sync'}
+                    {!isSaving && <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />}
+                    <span className="relative z-10">{isSaving ? 'Processing...' : 'Confirm Sync'}</span>
                  </button>
                  <button onClick={() => setShowSaveConfirmDialog(null)} className="w-full py-2 text-zinc-600 font-black uppercase tracking-widest text-[10px]">Cancel</button>
               </div>
