@@ -11,7 +11,7 @@ import { SpotifyDataService } from '../services/spotifyDataService';
 import { BlockStore } from '../services/blockStore';
 import { ContentIdStore } from '../services/contentIdStore';
 import DevicePickerModal from './DevicePickerModal';
-import { PinkAsterisk } from './HomeView';
+import { StatusAsterisk } from './HomeView';
 import { toastService } from '../services/toastService';
 
 interface RunViewProps {
@@ -26,7 +26,97 @@ interface RunViewProps {
 
 type GenStatus = 'IDLE' | 'RUNNING' | 'DONE' | 'ERROR';
 
-const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, onNavigateToHistory, initialResult, onResultUpdate }) => {
+const TrackRow: React.FC<{ 
+  track: Track; 
+  onPlay: (t: Track) => void; 
+  onStatusToggle: (t: Track) => void; 
+  onBlock: (t: Track) => void;
+}> = ({ track, onPlay, onStatusToggle, onBlock }) => {
+  const [swipeX, setSwipeX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+  const longPressTimer = useRef<number | null>(null);
+  const SWIPE_LIMIT = -100;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    longPressTimer.current = window.setTimeout(() => {
+      onStatusToggle(track);
+      Haptics.impact();
+    }, 600);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const currentX = e.touches[0].clientX;
+    const deltaX = currentX - touchStartX.current;
+    
+    // Kill long press if user is moving
+    if (Math.abs(deltaX) > 10) {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+    }
+
+    if (deltaX < 0) {
+      setIsSwiping(true);
+      setSwipeX(deltaX);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+
+    if (swipeX < SWIPE_LIMIT) {
+      Haptics.impact();
+      onBlock(track);
+    }
+    
+    setSwipeX(0);
+    setIsSwiping(false);
+    touchStartX.current = null;
+  };
+
+  return (
+    <div className="relative overflow-hidden">
+      {/* Background Block Action */}
+      <div className="absolute inset-0 bg-red-600 flex items-center justify-end px-6">
+        <span className="text-white font-black text-[10px] uppercase tracking-widest">Block</span>
+      </div>
+
+      <button 
+        onClick={() => onPlay(track)}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ 
+          touchAction: 'pan-y',
+          transform: `translateX(${swipeX}px)`,
+          transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.23, 1, 0.32, 1)'
+        }}
+        className="w-full flex items-center gap-4 p-4 bg-black/40 hover:bg-white/5 active:bg-palette-teal/10 transition-all group text-left select-none relative z-10"
+      >
+        <StatusAsterisk status={track.status} />
+        <div className="w-11 h-11 rounded-xl bg-zinc-900 overflow-hidden shrink-0 border border-white/10 relative pointer-events-none">
+          <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
+        </div>
+        <div className="flex-1 min-w-0 pointer-events-none">
+          <h4 className="text-[16px] font-gurmukhi text-[#D1F2EB] group-active:text-palette-teal truncate leading-tight">{track.title}</h4>
+          <p className="text-[11px] text-zinc-500 font-medium truncate mt-0.5 font-garet">{track.artist}</p>
+        </div>
+        
+        {/* Visual Cue for Swiping */}
+        <div className="w-1.5 h-1.5 rounded-full bg-zinc-800" />
+      </button>
+    </div>
+  );
+};
+
+const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, initialResult, onResultUpdate }) => {
   const [genStatus, setGenStatus] = useState<GenStatus>(initialResult ? 'DONE' : 'IDLE');
   const [showPlayOptions, setShowPlayOptions] = useState(false);
   const [showSaveOptions, setShowSaveOptions] = useState(false);
@@ -95,6 +185,11 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
       const runResult = await engine.generateRunResult(option, effectiveRules);
       if (requestId !== generationRequestId.current) return;
 
+      // Initialize status for all tracks
+      if (runResult.tracks) {
+        runResult.tracks = runResult.tracks.map(t => ({ ...t, status: 'none' }));
+      }
+
       setResult(runResult);
       setGenStatus('DONE');
       onResultUpdate?.(runResult);
@@ -126,8 +221,23 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
     }
   };
 
-  const handleHideTrack = (e: React.MouseEvent, track: Track) => {
-    e.stopPropagation();
+  const handleToggleStatus = (track: Track) => {
+    setResult(prev => {
+      if (!prev || !prev.tracks) return prev;
+      const updatedTracks = prev.tracks.map(t => {
+        if (t.uri === track.uri) {
+          const nextStatus: Track['status'] = t.status === 'none' ? 'liked' : t.status === 'liked' ? 'gem' : 'none';
+          return { ...t, status: nextStatus };
+        }
+        return t;
+      });
+      const updated = { ...prev, tracks: updatedTracks };
+      onResultUpdate?.(updated);
+      return updated;
+    });
+  };
+
+  const handleBlockTrack = (track: Track) => {
     Haptics.impact();
     BlockStore.addBlocked(track);
     setResult(prev => {
@@ -135,6 +245,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
       if (updated) onResultUpdate?.(updated);
       return updated;
     });
+    toastService.show(`Removed "${track.title}" from mix`, "info");
   };
 
   const handleConfirmSave = async () => {
@@ -245,24 +356,13 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
 
             <div className="glass-panel-gold rounded-[32px] overflow-hidden divide-y divide-white/5 border border-white/10 shadow-2xl stagger-entry stagger-2">
               {result?.tracks?.map((track, i) => (
-                <button 
-                  key={i} 
-                  onClick={() => handlePlayTrack(track)}
-                  style={{ touchAction: 'manipulation' }}
-                  className="w-full flex items-center gap-4 p-4 hover:bg-white/5 active:bg-palette-teal/10 transition-all group text-left stagger-entry stagger-3 select-none"
-                >
-                  <PinkAsterisk />
-                  <div className="w-11 h-11 rounded-xl bg-zinc-900 overflow-hidden shrink-0 border border-white/10 relative pointer-events-none">
-                    <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0 pointer-events-none">
-                    <h4 className="text-[16px] font-gurmukhi text-[#D1F2EB] group-active:text-palette-teal truncate leading-tight">{track.title}</h4>
-                    <p className="text-[11px] text-zinc-500 font-medium truncate mt-0.5 font-garet">{track.artist}</p>
-                  </div>
-                  <div onClick={(e) => handleHideTrack(e, track)} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-600 opacity-0 group-hover:opacity-100 transition-all active:scale-90 active:bg-red-500/20 active:text-red-500">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </div>
-                </button>
+                <TrackRow 
+                  key={track.uri + i} 
+                  track={track} 
+                  onPlay={handlePlayTrack} 
+                  onStatusToggle={handleToggleStatus} 
+                  onBlock={handleBlockTrack} 
+                />
               ))}
             </div>
           </div>
@@ -271,7 +371,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
 
       {genStatus === 'DONE' && !isQueuePlaying && (
         <div 
-          className="fixed bottom-[64px] left-0 right-0 bg-black/80 backdrop-blur-3xl border-t border-white/10 p-5 z-[110]"
+          className="fixed bottom-[56px] left-0 right-0 bg-black/80 backdrop-blur-3xl border-t border-white/10 p-5 z-[110]"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}
         >
            <div className="flex flex-col gap-3 max-w-lg mx-auto w-full">

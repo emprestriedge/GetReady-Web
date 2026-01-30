@@ -1,3 +1,4 @@
+
 export type TabType = 'Home' | 'History' | 'Settings';
 
 export enum RunOptionType {
@@ -60,6 +61,7 @@ export interface Track {
   imageUrl?: string;
   durationMs?: number;
   isNew?: boolean;
+  status?: 'liked' | 'gem' | 'none';
 }
 
 export interface BlockedTrack {

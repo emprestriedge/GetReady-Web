@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { SpotifyApi } from '../services/spotifyApi';
 import { spotifyPlayback } from '../services/spotifyPlaybackService';
@@ -127,7 +128,7 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
     <div 
       className={`fixed left-4 right-4 z-[200] cursor-pointer touch-none select-none ${!isSwiping ? 'transition-all duration-300' : ''}`}
       style={{ 
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 38px)',
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 30px)',
         transform: `translateX(${dragX}px)`,
         opacity: Math.max(0, 1 - Math.abs(dragX) / (DISMISS_THRESHOLD * 2))
       }}

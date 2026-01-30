@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
+import React, { useState, useEffect, ErrorInfo, ReactNode } from 'react';
 import { TabType, RuleSettings, RunOption, RunRecord, SpotifyUser, RunResult, AppConfig } from './types';
 import HomeView from './components/HomeView';
 import HistoryView from './components/HistoryView';
@@ -24,13 +23,9 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fixed: Using the explicitly imported Component class from 'react' to resolve property visibility issues in the build environment
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// @fix: Using React.Component explicitly to ensure props/state are correctly typed in class context and resolve the reported "Property 'props' does not exist" error.
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-  }
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
     const normalized = error instanceof Error ? error : new Error("Unknown Error");
@@ -84,6 +79,7 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<RunRecord[]>([]);
   const [activeRunOption, setActiveRunOption] = useState<RunOption | null>(null);
   const [activeRunResult, setActiveRunResult] = useState<RunResult | null>(null);
+  const [showRunOverlay, setShowRunOverlay] = useState(false);
   const [authStatus, setAuthStatus] = useState<string>('idle');
 
   useEffect(() => {
@@ -133,8 +129,9 @@ const App: React.FC = () => {
   const handleTabClick = (tab: TabType) => {
     Haptics.light();
     
-    setActiveRunOption(null);
-    setActiveRunResult(null);
+    // NAVIGATION PERSISTENCE: We no longer clear the active run on tab change.
+    // Instead, we just hide the overlay if it was showing.
+    setShowRunOverlay(false);
 
     if (tab === activeTab) {
       if (tab === 'Home') setHomeKey(prev => prev + 1);
@@ -142,6 +139,12 @@ const App: React.FC = () => {
     } else {
       setActiveTab(tab);
     }
+  };
+
+  const handleStartRun = (option: RunOption) => {
+    setActiveRunOption(option);
+    setActiveRunResult(null); // Clear previous result when starting NEW run
+    setShowRunOverlay(true);
   };
 
   const handleRunComplete = (result: RunResult) => {
@@ -155,20 +158,30 @@ const App: React.FC = () => {
     const updatedHistory = [newRecord, ...history];
     setHistory(updatedHistory);
     localStorage.setItem('spotify_buddy_history', JSON.stringify(updatedHistory));
-    setActiveRunOption(null);
-    setActiveRunResult(null);
+    
+    // Keep result state so user can return to it
+    setActiveRunResult(result);
+    setShowRunOverlay(false);
     setActiveTab('History');
+  };
+
+  const handleRestoreRun = () => {
+    if (activeRunOption) {
+      Haptics.medium();
+      setShowRunOverlay(true);
+    }
   };
 
   return (
     <ErrorBoundary>
       <InkBackground>
         {/* pt-16 ensures content clears the iPhone notch area */}
+        {/* LAYOUT LOCKED: Optimized for iPhone 17 Pro Max. DO NOT MODIFY height (100dvh) or safe-area padding. */}
         <div id="main-content-scroller" className="flex-1 overflow-y-auto w-full relative pt-16">
           {activeTab === 'Home' && (
             <HomeView 
               key={homeKey}
-              onSelect={setActiveRunOption} 
+              onSelect={handleStartRun} 
               rules={rules} 
               setRules={setRules} 
             />
@@ -190,23 +203,24 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {activeRunOption && (
+        {activeRunOption && showRunOverlay && (
           <RunView 
             option={activeRunOption} 
             rules={rules} 
-            onClose={() => setActiveRunOption(null)} 
+            onClose={() => setShowRunOverlay(false)} 
             onComplete={handleRunComplete}
             initialResult={activeRunResult || undefined}
             onResultUpdate={setActiveRunResult}
           />
         )}
 
-        <NowPlayingStrip />
+        <NowPlayingStrip onStripClick={handleRestoreRun} />
         <ToastOverlay />
 
-        {/* Compact Bottom Navigation: py-2 padding for absolute minimal height, bottom-0 pins to edge */}
+        {/* Compact Bottom Navigation: Reduced py from 2 to 1 (approx 10-15% height reduction) */}
         {/* z-[300] ensures it is visible on top of all views, including fixed overlays like RunView. bg-black/40 for higher transparency. */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-black/40 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center px-6 py-2 z-[300]">
+        {/* NAV BAR LOCKED: Height and Transparency fixed. Do not resize. */}
+        <nav className="fixed bottom-0 left-0 right-0 bg-black/40 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center px-6 py-1 z-[300]">
           {(['Home', 'History', 'Settings'] as TabType[]).map((tab) => {
             const isActive = activeTab === tab;
             return (

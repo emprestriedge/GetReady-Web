@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { RunOption, RunOptionType, VibeType, SmartMixPlan, RuleSettings } from '../types';
 import { SMART_MIX_MODES, MUSIC_BUTTONS, PODCAST_OPTIONS } from '../constants';
@@ -13,11 +14,21 @@ interface HomeViewProps {
 
 type HomeViewMode = 'root' | 'music' | 'podcast';
 
-export const PinkAsterisk = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-palette-pink shrink-0 mr-2 sm:mr-3 mt-1">
-    <path d="M12 3V21M4.2 7.5L19.8 16.5M19.8 7.5L4.2 16.5" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
-  </svg>
-);
+export const StatusAsterisk: React.FC<{ status?: 'liked' | 'gem' | 'none' }> = ({ status = 'none' }) => {
+  const color = status === 'liked' ? 'text-palette-pink' : status === 'gem' ? 'text-spotify-green' : 'text-zinc-600';
+  
+  // Custom green for Gems
+  const finalColor = status === 'gem' ? '#1DB954' : status === 'liked' ? '#FF007A' : '#555555';
+
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0 mr-2 sm:mr-3 mt-1" style={{ color: finalColor }}>
+      <path d="M12 3V21M4.2 7.5L19.8 16.5M19.8 7.5L4.2 16.5" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+    </svg>
+  );
+};
+
+// Legacy support
+export const PinkAsterisk = () => <StatusAsterisk status="liked" />;
 
 const AnimatedLabel: React.FC<{ value: number }> = ({ value }) => {
   const getBucketLabel = (v: number) => {
@@ -337,7 +348,7 @@ const OptionRow: React.FC<{ option: RunOption; onClick: () => void; isMusic?: bo
       disabled={!isReady}
       className={`w-full text-left px-4 sm:px-6 py-5 sm:py-6 transition-all flex items-center group relative active:scale-[0.98] ${isReady ? 'active:bg-white/10' : 'opacity-40 cursor-not-allowed grayscale'}`}
     >
-      <PinkAsterisk />
+      <StatusAsterisk status="none" />
       <div className="flex-1 flex flex-col min-w-0 pr-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-[21px] sm:text-[23px] font-gurmukhi text-[#A9E8DF] group-active:text-palette-pink transition-colors truncate max-w-[95%]`}>
