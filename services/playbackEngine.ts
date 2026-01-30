@@ -1,3 +1,4 @@
+
 import { RunOption, RuleSettings, RunResult, Track, RunOptionType, SpotifyTrack, VibeType, SpotifyEpisode, PodcastShowCandidate } from '../types';
 import { SpotifyDataService } from './spotifyDataService';
 import { configStore } from './configStore';
@@ -52,7 +53,8 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
     }
 
     const historyIds = await this.getHistoryIds(option.id);
-    const filter = (t: SpotifyTrack) => !t.is_local && t.is_playable !== false && !BlockStore.isBlocked(t.id) && !historyIds.has(t.id);
+    // Use t.uri for consistency with the block list storage format
+    const filter = (t: SpotifyTrack) => !t.is_local && t.is_playable !== false && !BlockStore.isBlocked(t.uri) && !historyIds.has(t.id);
 
     const config = configStore.getConfig();
     const catalog = config.catalog;
@@ -183,7 +185,7 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
     
     const mergedPool = Array.from(new Map(rawPools.flat().map(t => [t.id, t])).values());
     const filteredPool = mergedPool.filter(t => {
-      if (BlockStore.isBlocked(t.id) || historyIds.has(t.id)) return false;
+      if (BlockStore.isBlocked(t.uri) || historyIds.has(t.id)) return false;
       if (!this.isLatinOnly(t.name) || !this.isLatinOnly(t.artists[0].name)) return false;
       const year = parseInt(t.album.release_date?.split('-')[0] || "");
       return !isNaN(year) && year >= 1990 && year <= 2009;

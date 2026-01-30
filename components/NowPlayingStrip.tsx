@@ -5,9 +5,10 @@ import { Haptics } from '../services/haptics';
 
 interface NowPlayingStripProps {
   onStripClick?: () => void;
+  onDismiss?: () => void;
 }
 
-const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
+const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick, onDismiss }) => {
   const [playbackState, setPlaybackState] = useState<any>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isManuallyDismissed, setIsManuallyDismissed] = useState(false);
@@ -27,6 +28,7 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
           setIsVisible(true);
         }
       } else {
+        // If nothing is playing, hide the strip automatically
         setIsVisible(false);
         setIsManuallyDismissed(false);
       }
@@ -60,24 +62,23 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
     touchStartX.current = null;
 
     if (Math.abs(finalX) > DISMISS_THRESHOLD) {
-      Haptics.impact();
-      const exitDirection = finalX > 0 ? 500 : -500;
-      setDragX(exitDirection);
-
-      try {
-        await spotifyPlayback.pause();
-        setTimeout(() => {
-          setIsVisible(false);
-          setIsManuallyDismissed(true);
-          setDragX(0);
-        }, 300);
-      } catch (err) {
-        setIsVisible(false);
-        setIsManuallyDismissed(true);
-      }
+      handleDismiss();
     } else {
       setDragX(0);
     }
+  };
+
+  const handleDismiss = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    Haptics.impact();
+    
+    try {
+      await spotifyPlayback.pause();
+    } catch (err) {}
+    
+    setIsVisible(false);
+    setIsManuallyDismissed(true);
+    onDismiss?.();
   };
 
   if (!isVisible || !playbackState || isManuallyDismissed) return null;
@@ -127,7 +128,7 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
     <div 
       className={`fixed left-4 right-4 z-[200] cursor-pointer touch-none select-none ${!isSwiping ? 'transition-all duration-300' : ''}`}
       style={{ 
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 38px)',
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 72px)',
         transform: `translateX(${dragX}px)`,
         opacity: Math.max(0, 1 - Math.abs(dragX) / (DISMISS_THRESHOLD * 2))
       }}
@@ -136,8 +137,7 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Black Jelly Glass Container: Reduced background opacity to 25% for better transparency */}
-      <div className="bg-black/25 backdrop-blur-[40px] border border-white/10 rounded-[34px] overflow-hidden flex flex-col shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)] transition-all active:scale-[0.99]">
+      <div className="bg-black/25 backdrop-blur-[40px] border border-white/10 rounded-[34px] overflow-hidden flex flex-col shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)] transition-all active:scale-[0.99] relative">
         {/* Progress Bar */}
         <div className="w-full h-[3px] bg-white/5">
           <div 
@@ -145,6 +145,15 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
             style={{ width: `${progressPct}%` }}
           />
         </div>
+
+        {/* Close Button */}
+        <button 
+          onClick={handleDismiss}
+          className="absolute top-3 right-3 w-6 h-6 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-20 active:scale-75"
+          aria-label="Dismiss Player"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
         
         {/* Main Interface */}
         <div className="px-5 py-5 flex items-center gap-4">
@@ -157,7 +166,7 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
             )}
           </div>
           
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 pr-6">
             <h4 className="text-[14px] font-garet font-black text-white truncate leading-tight tracking-tight drop-shadow-sm">
               {track.name}
             </h4>
@@ -172,7 +181,7 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
             </div>
           </div>
 
-          {/* Controls: Enhanced Visibility */}
+          {/* Controls */}
           <div className="flex items-center gap-2 pr-1">
             <button 
               onClick={handlePrevious}

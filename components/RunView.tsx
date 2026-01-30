@@ -1,4 +1,6 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { RunOption, RuleSettings, RunResult, RunOptionType, SpotifyDevice, Track, PodcastShowCandidate } from '../types';
 import { RuleOverrideStore } from '../services/ruleOverrideStore';
 import { getEffectiveRules } from '../utils/ruleUtils';
@@ -63,7 +65,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
 
   const handleHistoryBackfill = async () => {
     if (!initialResult?.tracks) return;
-    const validTracks = initialResult.tracks.filter(t => !BlockStore.isBlocked(t.uri.split(':').pop() || ''));
+    const validTracks = initialResult.tracks.filter(t => !BlockStore.isBlocked(t.uri));
     if (validTracks.length < initialResult.tracks.length) {
       try {
         const fullResult = await engine.generateRunResult(option, effectiveRules);
@@ -125,15 +127,22 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
     }
   };
 
-  const handleHideTrack = (e: React.MouseEvent, track: Track) => {
-    e.stopPropagation();
+  const handleBlockTrack = (track: Track) => {
     Haptics.impact();
-    BlockStore.addBlocked(track);
+    // Use Track metadata to populate BlockedTrack entry
+    BlockStore.add({
+      id: track.uri,
+      name: track.title,
+      artist: track.artist,
+      album: track.album,
+      addedAt: new Date().toISOString()
+    });
     setResult(prev => {
       const updated = prev ? { ...prev, tracks: prev.tracks?.filter(t => t.uri !== track.uri) } : null;
       if (updated) onResultUpdate?.(updated);
       return updated;
     });
+    toastService.show("Track Blocked", "info");
   };
 
   const handleConfirmSave = async () => {
@@ -205,7 +214,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-300 overflow-hidden text-[#A9E8DF]">
-      {/* Increased pt-16 to consistently clear notch */}
       <div 
         className="px-6 pb-5 flex items-center justify-between border-b border-white/5 bg-black/20 shrink-0 pt-16"
       >
@@ -243,26 +251,59 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
             </header>
 
             <div className="glass-panel-gold rounded-[32px] overflow-hidden divide-y divide-white/5 border border-white/10 shadow-2xl stagger-entry stagger-2">
-              {result?.tracks?.map((track, i) => (
-                <button 
-                  key={i} 
-                  onClick={() => handlePlayTrack(track)}
-                  style={{ touchAction: 'manipulation' }}
-                  className="w-full flex items-center gap-4 p-4 hover:bg-white/5 active:bg-palette-teal/10 transition-all group text-left stagger-entry stagger-3 select-none"
-                >
-                  <PinkAsterisk />
-                  <div className="w-11 h-11 rounded-xl bg-zinc-900 overflow-hidden shrink-0 border border-white/10 relative pointer-events-none">
-                    <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0 pointer-events-none">
-                    <h4 className="text-[16px] font-gurmukhi text-[#D1F2EB] group-active:text-palette-teal truncate leading-tight">{track.title}</h4>
-                    <p className="text-[11px] text-zinc-500 font-medium truncate mt-0.5 font-garet">{track.artist}</p>
-                  </div>
-                  <div onClick={(e) => handleHideTrack(e, track)} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-600 opacity-0 group-hover:opacity-100 transition-all active:scale-90 active:bg-red-500/20 active:text-red-500">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </div>
-                </button>
-              ))}
+              <AnimatePresence initial={false}>
+                {result?.tracks?.map((track, i) => (
+                  <motion.div
+                    key={track.uri}
+                    layout
+                    initial={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -300 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    className="relative"
+                  >
+                    {/* Block background revealed on drag */}
+                    <motion.div 
+                      className="absolute inset-0 bg-red-600 flex items-center justify-end px-8 z-0"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <span className="text-white font-black uppercase tracking-widest text-[12px]">Block</span>
+                    </motion.div>
+
+                    <motion.div
+                      drag="x"
+                      dragConstraints={{ left: 0, right: 0 }}
+                      onDragEnd={(_, info) => {
+                        if (info.offset.x < -100) {
+                          handleBlockTrack(track);
+                        }
+                      }}
+                      className="w-full relative z-10 bg-black/5"
+                    >
+                      <button 
+                        onClick={() => handlePlayTrack(track)}
+                        style={{ touchAction: 'manipulation' }}
+                        className="w-full flex items-center gap-4 p-4 hover:bg-white/5 active:bg-palette-teal/10 transition-all group text-left select-none"
+                      >
+                        <PinkAsterisk />
+                        <div className="w-11 h-11 rounded-xl bg-zinc-900 overflow-hidden shrink-0 border border-white/10 relative pointer-events-none">
+                          <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex-1 min-w-0 pointer-events-none">
+                          <h4 className="text-[16px] font-gurmukhi text-[#D1F2EB] group-active:text-palette-teal truncate leading-tight">{track.title}</h4>
+                          <p className="text-[11px] text-zinc-500 font-medium truncate mt-0.5 font-garet">{track.artist}</p>
+                        </div>
+                        {track.isNew && (
+                          <div className="w-6 h-6 flex items-center justify-center rounded-full bg-palette-pink/20 text-palette-pink">
+                            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                          </div>
+                        )}
+                      </button>
+                    </motion.div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           </div>
         )}
