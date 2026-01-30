@@ -1,9 +1,9 @@
-
 import React from "react";
 
 /**
  * InkBackground - Provides a full-screen background image using an embedded 
  * radial gradient and strictly fills the viewport to allow internal scrolling.
+ * Added subtle organic movement to make the background feel dynamic and alive.
  */
 export default function InkBackground({ children }: { children?: React.ReactNode }) {
   const gradientStyle: React.CSSProperties = {
@@ -13,8 +13,11 @@ export default function InkBackground({ children }: { children?: React.ReactNode
       linear-gradient(135deg, #000000 0%, #1a1a1a 100%)
     `,
     position: "absolute",
-    inset: 0,
-    zIndex: 0
+    // Expand bounds slightly to accommodate translation/scaling without showing edges
+    inset: "-10%",
+    zIndex: 0,
+    // Slow, subtle organic movement
+    animation: "inkDrift 45s ease-in-out infinite"
   };
 
   return (

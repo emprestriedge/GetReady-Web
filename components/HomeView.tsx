@@ -58,6 +58,33 @@ const AnimatedLabel: React.FC<{ value: number }> = ({ value }) => {
   );
 };
 
+const VIBE_STYLES: Record<VibeType, { gradient: string, shadow: string, activeRing: string, label: string }> = {
+  Chaos: { 
+    gradient: "from-[#FF007A] to-[#FF4D9F]", 
+    shadow: "rgba(255, 0, 122, 0.6)",
+    activeRing: "ring-[#FF007A]",
+    label: "CHAOS"
+  },
+  Zen: { 
+    gradient: "from-[#C5A04D] to-[#E5C16D]", 
+    shadow: "rgba(197, 160, 77, 0.6)",
+    activeRing: "ring-[#C5A04D]",
+    label: "ZEN"
+  },
+  Focus: { 
+    gradient: "from-[#2DB9B1] to-[#40D9D0]", 
+    shadow: "rgba(45, 185, 177, 0.6)",
+    activeRing: "ring-[#2DB9B1]",
+    label: "FOCUS"
+  },
+  LighteningMix: { 
+    gradient: "from-[#19A28E] to-[#2DB9B1]", 
+    shadow: "rgba(25, 162, 142, 0.6)",
+    activeRing: "ring-[#19A28E]",
+    label: "FLASH"
+  },
+};
+
 const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
   const [viewMode, setViewMode] = useState<HomeViewMode>('root');
   const [vibe, setVibe] = useState<VibeType>(() => {
@@ -138,7 +165,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
   const renderRoot = () => (
     <div className="flex flex-col gap-4 px-4 pb-12 w-full max-w-full overflow-x-hidden">
       <header className="mb-6 pl-8 stagger-entry stagger-1" style={{ paddingTop: '8px' }}>
-        <h1 className="text-8xl font-mango header-ombre leading-none tracking-tighter">Library</h1>
+        <h1 className="text-7xl font-mango header-ombre leading-none tracking-tighter">Library</h1>
         <p className="ios-caption text-zinc-500 text-[10px] font-black uppercase tracking-[0.3em] mt-5 ml-1">Daily Catalog</p>
       </header>
 
@@ -166,32 +193,45 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
           <div className="flex flex-col gap-3">
             <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">1. Select Vibe Profile</span>
             <div className="grid grid-cols-4 gap-3 px-5">
-              {(['Chaos', 'Zen', 'Focus', 'LighteningMix'] as VibeType[]).map((v) => (
-                <div key={v} className="flex items-center justify-center">
-                  <button 
-                    onClick={() => setVibeProfile(v)} 
-                    className={`relative w-full aspect-square rounded-[16px] transition-all duration-300 active:scale-95 flex items-center justify-center ${vibe === v ? 'scale-105 shadow-xl' : 'opacity-30 grayscale-[0.4]'}`}
-                  >
-                    <div 
-                      className={`absolute inset-0 bg-gradient-to-br from-[#19A28E] via-[#2DB9B1] to-[#40D9D0] rounded-[16px] ${vibe === v ? 'ring-2 ring-white/60 shadow-palette-teal/50' : ''}`} 
-                      style={{ 
-                        boxShadow: vibe === v ? '0 8px 24px -6px rgba(25, 162, 142, 0.6), inset 0 6px 16px rgba(255, 255, 255, 0.5)' : '0 2px 8px -2px rgba(25, 162, 142, 0.2)' 
-                      }}
+              {(['Chaos', 'Zen', 'Focus', 'LighteningMix'] as VibeType[]).map((v) => {
+                const style = VIBE_STYLES[v];
+                const isActive = vibe === v;
+                return (
+                  <div key={v} className="flex items-center justify-center">
+                    <button 
+                      onClick={() => setVibeProfile(v)} 
+                      className={`relative w-full aspect-square rounded-[20px] transition-all duration-300 active:scale-95 flex items-center justify-center ${isActive ? 'scale-110' : 'opacity-40 grayscale-[0.6] scale-100'}`}
                     >
-                      <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-[8px] blur-[0.6px] pointer-events-none" />
-                    </div>
-                    <div className="relative z-10 w-full h-full flex items-center justify-center overflow-visible p-1">
-                      {v === 'LighteningMix' ? (
-                        <LightningIcon className="w-8 h-8 text-black drop-shadow-sm" />
-                      ) : (
-                        <span className="text-[11px] font-black uppercase tracking-tight text-black italic transform scale-x-[0.95] leading-none text-center px-0.5">
-                          {v === 'Chaos' ? 'CHAOS' : v === 'Zen' ? 'ZEN' : 'FOCUS'}
-                        </span>
+                      {/* Glow Effect */}
+                      {isActive && (
+                        <div 
+                          className="absolute inset-[-4px] rounded-[24px] blur-xl opacity-80 transition-all duration-300"
+                          style={{ backgroundColor: style.shadow.replace('0.6', '0.4') }}
+                        />
                       )}
-                    </div>
-                  </button>
-                </div>
-              ))}
+                      
+                      <div 
+                        className={`absolute inset-0 bg-gradient-to-br ${style.gradient} rounded-[20px] transition-all duration-300 ${isActive ? `ring-[3px] ${style.activeRing} ring-offset-2 ring-offset-black` : 'border border-white/5'}`} 
+                        style={{ 
+                          boxShadow: isActive ? `0 12px 28px -4px ${style.shadow}, inset 0 6px 16px rgba(255, 255, 255, 0.5)` : 'none' 
+                        }}
+                      >
+                        <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-[10px] blur-[0.6px] pointer-events-none" />
+                      </div>
+                      
+                      <div className="relative z-10 w-full h-full flex items-center justify-center overflow-visible p-1">
+                        {v === 'LighteningMix' ? (
+                          <LightningIcon className={`w-8 h-8 transition-colors ${isActive ? 'text-white' : 'text-zinc-300'} drop-shadow-md`} />
+                        ) : (
+                          <span className={`text-[10px] font-black uppercase tracking-tighter italic transform scale-x-[0.95] leading-none text-center px-0.5 transition-colors ${isActive ? 'text-white' : 'text-zinc-300'}`}>
+                            {style.label}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
           <div className="flex flex-col gap-4">
@@ -246,7 +286,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
       <div className="flex flex-col gap-6 px-4 w-full max-w-full overflow-x-hidden">
         <header className="flex flex-col gap-2 pl-8 stagger-entry stagger-1" style={{ paddingTop: '8px' }}>
           <button onClick={() => navigateTo('root')} className="text-palette-pink flex items-center gap-1 active:opacity-50 font-black text-xs uppercase tracking-widest"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M15 19l-7-7 7-7" /></svg><span className="font-garet font-bold">Library</span></button>
-          <h2 className="text-8xl font-mango header-ombre leading-none mt-2 tracking-tighter">{title}</h2>
+          <h2 className="text-7xl font-mango header-ombre leading-none mt-2 tracking-tighter">{title}</h2>
         </header>
         <div className="glass-panel-gold rounded-[32px] overflow-hidden divide-y divide-white/5 stagger-entry stagger-2">
           {options.map((option, i) => (
@@ -270,7 +310,7 @@ interface CategoryCardProps { title: string; description: string; icon: React.Re
 const CategoryCard: React.FC<CategoryCardProps> = ({ title, description, icon, gradient, shadowColor, onClick }) => (
   <button 
     onClick={() => { Haptics.light(); onClick(); }} 
-    className="w-full text-left bg-palette-gold/5 backdrop-blur-3xl rounded-[38px] p-4 sm:p-6 ios-btn-active flex items-center gap-4 sm:gap-6 group border border-white/5 shadow-2xl relative overflow-hidden transition-all duration-300 active:scale-95 min-h-[110px]"
+    className="w-full text-left bg-palette-gold/5 backdrop-blur-3xl rounded-[38px] p-4 sm:p-6 flex items-center gap-4 sm:gap-6 group border border-white/5 shadow-2xl relative overflow-hidden transition-all duration-75 ease-out active:scale-[0.98] active:opacity-90 min-h-[110px]"
   >
     <div className="relative shrink-0">
       <div className={`w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br ${gradient} rounded-[28px] sm:rounded-[32px] flex items-center justify-center shadow-xl relative overflow-hidden transition-all duration-300 transform group-hover:scale-105`} style={{ boxShadow: `0 12px 25px -8px ${shadowColor}, inset 0 6px 15px rgba(255, 255, 255, 0.45), inset 0 -10px 25px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.15)` }}>
