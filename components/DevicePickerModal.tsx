@@ -42,7 +42,7 @@ const DevicePickerModal: React.FC<DevicePickerModalProps> = ({ onSelect, onClose
   };
 
   return (
-    <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-xl flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-300">
       <div className="bg-zinc-900 w-full max-w-md rounded-[40px] border border-white/10 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-8 duration-500">
         <header className="px-8 pt-8 pb-4 flex justify-between items-center">
           <div>

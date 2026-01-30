@@ -1,47 +1,35 @@
+import { BlockedTrack, Track, SpotifyTrack } from '../types';
 
-import { BlockedTrack } from '../types';
-
-const STORAGE_KEY = 'blocked_tracks';
+const STORAGE_KEY = 'blockedTracks';
 
 export const BlockStore = {
-  /**
-   * Returns all blocked items as full BlockedTrack objects.
-   * Matches the usage in BlockedTracksView and SettingsView.
-   */
   getBlocked: (): BlockedTrack[] => {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : [];
   },
 
-  /**
-   * Returns a list of IDs (URIs) for all blocked tracks.
-   */
-  getAll: (): string[] => {
-    return BlockStore.getBlocked().map(t => t.id);
-  },
-
-  /**
-   * Checks if a specific ID or URI is in the block list.
-   */
   isBlocked: (id: string): boolean => {
-    const blocked = BlockStore.getAll();
-    return blocked.includes(id);
-  },
-
-  /**
-   * Adds a track to the block list with metadata.
-   */
-  add: (track: BlockedTrack): void => {
     const blocked = BlockStore.getBlocked();
-    if (blocked.some(t => t.id === track.id)) return;
-    
-    const updated = [track, ...blocked];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    return blocked.some(t => t.id === id);
   },
 
-  /**
-   * Removes a track from the block list by ID.
-   */
+  addBlocked: (track: SpotifyTrack | Track): void => {
+    const blocked = BlockStore.getBlocked();
+    const id = ('id' in track) ? track.id : track.uri.split(':').pop() || '';
+    
+    if (blocked.some(t => t.id === id)) return;
+
+    const newBlocked: BlockedTrack = {
+      id,
+      name: ('name' in track) ? track.name : track.title,
+      artist: ('artists' in track) ? track.artists[0].name : track.artist,
+      album: ('album' in track) ? (typeof track.album === 'string' ? track.album : track.album.name) : track.album,
+      addedAt: new Date().toISOString()
+    };
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([newBlocked, ...blocked]));
+  },
+
   removeBlocked: (id: string): void => {
     const blocked = BlockStore.getBlocked();
     const filtered = blocked.filter(t => t.id !== id);

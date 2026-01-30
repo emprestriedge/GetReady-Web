@@ -13,14 +13,11 @@ interface HomeViewProps {
 
 type HomeViewMode = 'root' | 'music' | 'podcast';
 
-export const StatusAsterisk: React.FC<{ colorClass?: string }> = ({ colorClass = "text-palette-pink" }) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={`${colorClass} shrink-0 mr-2 sm:mr-3 mt-1 transition-colors duration-300`}>
+export const PinkAsterisk = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-palette-pink shrink-0 mr-2 sm:mr-3 mt-1">
     <path d="M12 3V21M4.2 7.5L19.8 16.5M19.8 7.5L4.2 16.5" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
   </svg>
 );
-
-// Keep for backward compatibility if needed, but internally uses StatusAsterisk
-export const PinkAsterisk = () => <StatusAsterisk colorClass="text-palette-pink" />;
 
 const AnimatedLabel: React.FC<{ value: number }> = ({ value }) => {
   const getBucketLabel = (v: number) => {
@@ -340,7 +337,7 @@ const OptionRow: React.FC<{ option: RunOption; onClick: () => void; isMusic?: bo
       disabled={!isReady}
       className={`w-full text-left px-4 sm:px-6 py-5 sm:py-6 transition-all flex items-center group relative active:scale-[0.98] ${isReady ? 'active:bg-white/10' : 'opacity-40 cursor-not-allowed grayscale'}`}
     >
-      <StatusAsterisk colorClass="text-palette-pink" />
+      <PinkAsterisk />
       <div className="flex-1 flex flex-col min-w-0 pr-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-[21px] sm:text-[23px] font-gurmukhi text-[#A9E8DF] group-active:text-palette-pink transition-colors truncate max-w-[95%]`}>

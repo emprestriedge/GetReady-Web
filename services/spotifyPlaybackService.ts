@@ -14,7 +14,6 @@ class SpotifyPlaybackService {
   private deviceId: string | null = null;
   private sdkReady: boolean = false;
   private initializationPromise: Promise<void> | null = null;
-  private isPlaying: boolean = false;
 
   async init(): Promise<void> {
     if (this.initializationPromise) return this.initializationPromise;
@@ -41,11 +40,6 @@ class SpotifyPlaybackService {
           volume: 0.5
         });
 
-        this.player.addListener('player_state_changed', (state: any) => {
-          if (!state) return;
-          this.isPlaying = !state.paused;
-        });
-
         this.player.addListener('ready', ({ device_id }: { device_id: string }) => {
           this.deviceId = device_id;
           this.sdkReady = true;
@@ -70,14 +64,9 @@ class SpotifyPlaybackService {
     return this.initializationPromise;
   }
 
-  getIsPlaying(): boolean {
-    return this.isPlaying;
-  }
-
   async preparePlaybackContext(): Promise<boolean> {
     try {
       const state = await SpotifyApi.request('/me/player');
-      this.isPlaying = state?.is_playing || false;
       return !!(state && state.device);
     } catch (e: any) {
       return false;
@@ -112,17 +101,14 @@ class SpotifyPlaybackService {
       method: 'PUT',
       body: JSON.stringify({ uris })
     });
-    this.isPlaying = true;
   }
 
   async pause(): Promise<void> {
     await SpotifyApi.request('/me/player/pause', { method: 'PUT' });
-    this.isPlaying = false;
   }
 
   async resume(): Promise<void> {
     await SpotifyApi.request('/me/player/play', { method: 'PUT' });
-    this.isPlaying = true;
   }
 
   async next(): Promise<void> {

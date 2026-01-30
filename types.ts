@@ -60,8 +60,6 @@ export interface Track {
   imageUrl?: string;
   durationMs?: number;
   isNew?: boolean;
-  isLiked?: boolean;
-  isGem?: boolean;
 }
 
 export interface BlockedTrack {
