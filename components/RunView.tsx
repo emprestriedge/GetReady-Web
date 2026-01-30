@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RunOption, RuleSettings, RunResult, RunOptionType, SpotifyDevice, Track, PodcastShowCandidate } from '../types';
 import { RuleOverrideStore } from '../services/ruleOverrideStore';
@@ -27,10 +28,11 @@ type GenStatus = 'IDLE' | 'RUNNING' | 'DONE' | 'ERROR';
 
 const TrackRow: React.FC<{ 
   track: Track; 
+  isActive: boolean;
   onPlay: (t: Track) => void; 
   onStatusToggle: (t: Track) => void; 
   onBlock: (t: Track) => void;
-}> = ({ track, onPlay, onStatusToggle, onBlock }) => {
+}> = ({ track, isActive, onPlay, onStatusToggle, onBlock }) => {
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const touchStartX = useRef<number | null>(null);
@@ -81,6 +83,7 @@ const TrackRow: React.FC<{
 
   return (
     <div className="relative overflow-hidden bg-red-600">
+      {/* Block Background layer */}
       <div className="absolute inset-0 flex items-center justify-end px-6">
         <span className="text-white font-black text-[10px] uppercase tracking-widest">Block</span>
       </div>
@@ -95,17 +98,41 @@ const TrackRow: React.FC<{
           transform: `translateX(${swipeX}px)`,
           transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.23, 1, 0.32, 1)'
         }}
-        className="w-full flex items-center gap-4 p-4 bg-zinc-950 backdrop-blur-md hover:bg-white/5 active:bg-palette-teal/10 transition-all group text-left select-none relative z-10 border-b border-white/5"
+        /* VISUAL REDESIGN: Using obsidian glass background with dynamic highlight for active state */
+        className={`w-full flex items-center gap-4 p-4 transition-all group text-left select-none relative z-10 border-b border-palette-gold/5 ${
+          isActive 
+            ? 'bg-palette-teal/10 border-palette-teal/30 shadow-[inset_0_0_20px_rgba(45,185,177,0.15)]' 
+            : 'bg-[#0a0a0a]/80 backdrop-blur-xl hover:bg-white/5 active:bg-palette-teal/5'
+        }`}
       >
-        <StatusAsterisk status={track.status} />
-        <div className="w-11 h-11 rounded-xl bg-zinc-900 overflow-hidden shrink-0 border border-white/10 relative pointer-events-none">
-          <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
+        <div className="relative shrink-0 flex items-center">
+          {isActive ? (
+            <div className="w-4.5 h-4.5 mr-2 sm:mr-3 flex items-center justify-center">
+              <div className="flex gap-0.5 items-end h-3">
+                 <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.6s_ease-in-out_infinite]" style={{ height: '100%' }} />
+                 <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.8s_ease-in-out_infinite]" style={{ height: '60%' }} />
+                 <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.7s_ease-in-out_infinite]" style={{ height: '85%' }} />
+              </div>
+            </div>
+          ) : (
+            <StatusAsterisk status={track.status} />
+          )}
         </div>
+
+        <div className={`w-11 h-11 rounded-xl bg-zinc-900 overflow-hidden shrink-0 border relative pointer-events-none transition-colors ${isActive ? 'border-palette-teal/40' : 'border-white/10'}`}>
+          <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
+          {isActive && <div className="absolute inset-0 bg-palette-teal/10 animate-pulse" />}
+        </div>
+
         <div className="flex-1 min-w-0 pointer-events-none">
-          <h4 className="text-[16px] font-gurmukhi text-[#D1F2EB] group-active:text-palette-teal truncate leading-tight">{track.title}</h4>
+          <h4 className={`text-[16px] font-gurmukhi truncate leading-tight transition-colors ${isActive ? 'text-palette-teal' : 'text-[#D1F2EB] group-active:text-palette-teal'}`}>
+            {track.title}
+          </h4>
           <p className="text-[11px] text-zinc-500 font-medium truncate mt-0.5 font-garet">{track.artist}</p>
         </div>
-        <div className="w-1.5 h-1.5 rounded-full bg-zinc-800" />
+        
+        {/* Visual Cue for Active/Swiping */}
+        <div className={`w-1.5 h-1.5 rounded-full transition-colors ${isActive ? 'bg-palette-teal shadow-[0_0_8px_rgba(45,185,177,1)]' : 'bg-zinc-800'}`} />
       </button>
     </div>
   );
@@ -118,6 +145,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   const [showSaveConfirmDialog, setShowSaveConfirmDialog] = useState<'logs' | 'spotify' | null>(null);
   const [showDevicePicker, setShowDevicePicker] = useState(false);
   const [isQueuePlaying, setIsQueuePlaying] = useState(false);
+  const [currentPlayingUri, setCurrentPlayingUri] = useState<string | null>(null);
   
   const [result, setResult] = useState<RunResult | null>(initialResult || null);
   const [error, setError] = useState<string | null>(null);
@@ -136,6 +164,20 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     if (initialResult) handleHistoryBackfill();
     if (!initialResult && genStatus === 'IDLE') startRun();
     checkDeviceStatus();
+
+    // Polling for active track to highlight in list
+    const pollPlayback = async () => {
+      try {
+        const state = await SpotifyApi.request('/me/player');
+        if (state?.item?.uri) {
+          setCurrentPlayingUri(state.item.uri);
+        }
+      } catch (e) {}
+    };
+
+    const interval = setInterval(pollPlayback, 3000);
+    pollPlayback();
+    return () => clearInterval(interval);
   }, [option, rules, initialResult]);
 
   const checkDeviceStatus = async () => {
@@ -200,11 +242,14 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     if (!result?.tracks) return;
     Haptics.light();
     setIsQueuePlaying(true); 
+    setCurrentPlayingUri(track.uri);
+    
     try {
       const devices = await SpotifyApi.getDevices();
       const active = devices.find(d => d.is_active);
       const trackIdx = result.tracks.findIndex(t => t.uri === track.uri);
       const queue = result.tracks.slice(trackIdx).map(t => t.uri);
+
       if (active) {
         await spotifyPlayback.playUrisOnDevice(active.id, queue);
         Haptics.success();
@@ -222,8 +267,10 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     const trackId = track.uri.split(':').pop() || '';
     const currentTrack = result.tracks.find(t => t.uri === track.uri);
     if (!currentTrack) return;
+    
     const nextStatus: Track['status'] = currentTrack.status === 'none' ? 'liked' : 
                                        currentTrack.status === 'liked' ? 'gem' : 'none';
+
     setResult(prev => {
       if (!prev || !prev.tracks) return prev;
       const updatedTracks = prev.tracks.map(t => {
@@ -234,6 +281,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       onResultUpdate?.(updated);
       return updated;
     });
+
     try {
       if (nextStatus === 'liked') {
         await SpotifyDataService.removeTrackFromGems(track.uri).catch(() => {});
@@ -312,6 +360,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     Haptics.medium();
     setShowDevicePicker(false);
     setIsQueuePlaying(true);
+    
     try {
       const activeId = await spotifyPlayback.ensureActiveDevice(deviceId);
       const uris = result.tracks.map(t => t.uri);
@@ -368,11 +417,13 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
               </div>
             </header>
 
-            <div className="glass-panel-gold rounded-[32px] overflow-hidden divide-y divide-white/5 border border-white/10 shadow-2xl stagger-entry stagger-2">
+            {/* VISUAL REDESIGN: Obsidian Jelly Glass list container with gold glow */}
+            <div className="bg-[#0f0f0f]/60 backdrop-blur-2xl rounded-[32px] overflow-hidden divide-y divide-palette-gold/5 border border-palette-gold/15 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_20px_rgba(197,160,77,0.05)] stagger-entry stagger-2">
               {result?.tracks?.map((track, i) => (
                 <TrackRow 
                   key={track.uri + i} 
                   track={track} 
+                  isActive={currentPlayingUri === track.uri}
                   onPlay={handlePlayTrack} 
                   onStatusToggle={handleToggleStatus} 
                   onBlock={handleBlockTrack} 
