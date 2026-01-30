@@ -76,7 +76,7 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
 
   return (
     <div 
-      className="fixed left-4 right-4 z-[60] animate-in slide-in-from-bottom-4 duration-500 cursor-pointer"
+      className="fixed left-4 right-4 z-[200] animate-in slide-in-from-bottom-4 duration-500 cursor-pointer"
       style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 34px)' }}
       onClick={() => onStripClick?.()}
     >

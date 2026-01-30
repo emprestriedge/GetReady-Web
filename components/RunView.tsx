@@ -31,6 +31,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
   const [showSaveOptions, setShowSaveOptions] = useState(false);
   const [showSaveConfirmDialog, setShowSaveConfirmDialog] = useState<'logs' | 'spotify' | null>(null);
   const [showDevicePicker, setShowDevicePicker] = useState(false);
+  const [isQueuePlaying, setIsQueuePlaying] = useState(false);
   
   const [result, setResult] = useState<RunResult | null>(initialResult || null);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +85,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
     setError(null);
     setGenStatus('RUNNING');
     setResult(null); 
+    setIsQueuePlaying(false);
     
     const requestId = ++generationRequestId.current;
 
@@ -105,18 +107,23 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
   };
 
   const handlePlayTrack = async (track: Track) => {
+    // Provide IMMEDIATE tactile and UI feedback to fix "double-tap" perception
     Haptics.light();
+    setIsQueuePlaying(true); 
+    
     try {
       const devices = await SpotifyApi.getDevices();
       const active = devices.find(d => d.is_active);
       if (active) {
         await spotifyPlayback.playUrisOnDevice(active.id, [track.uri]);
         Haptics.success();
-        toastService.show(`Playing: ${track.title}`, "success");
       } else {
         setShowDevicePicker(true);
+        // If no active device, we might want to show the controls again, 
+        // but typically user will select a device and then it plays.
       }
     } catch (e: any) {
+      setIsQueuePlaying(false);
       toastService.show(e.message || "Playback failed", "error");
     }
   };
@@ -162,6 +169,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
     const uris = result.runType === RunOptionType.MUSIC ? result.tracks?.map(t => t.uri) || [] : [result.episode?.uri].filter(Boolean) as string[];
     if (uris.length > 0) {
        window.location.href = uris[0];
+       setIsQueuePlaying(true);
     }
     setShowPlayOptions(false);
   };
@@ -176,16 +184,16 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
     if (!result?.tracks) return;
     Haptics.medium();
     setShowDevicePicker(false);
+    setIsQueuePlaying(true);
     
     try {
-      toastService.show("Linking to device...", "info");
       const activeId = await spotifyPlayback.ensureActiveDevice(deviceId);
       const uris = result.tracks.map(t => t.uri);
       await spotifyPlayback.playUrisOnDevice(activeId, uris);
       Haptics.success();
-      toastService.show(`Playing ${option.name} on selected device`, "success");
     } catch (e: any) {
       Haptics.error();
+      setIsQueuePlaying(false);
       toastService.show(e.message || "Push failed", "error");
     }
   };
@@ -206,7 +214,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
       >
         <button onClick={() => { Haptics.light(); onClose(); }} className="text-zinc-500 text-[14px] font-garet font-black uppercase tracking-widest active:text-white transition-colors">
-          Cancel
+          Back
         </button>
         <span className="font-black text-[10px] uppercase tracking-[0.4em] text-zinc-600">Active Queue</span>
         <div className="w-12" />
@@ -244,13 +252,14 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
                 <button 
                   key={i} 
                   onClick={() => handlePlayTrack(track)}
-                  className="w-full flex items-center gap-4 p-4 hover:bg-white/5 active:bg-palette-teal/10 transition-all group text-left stagger-entry stagger-3"
+                  style={{ touchAction: 'manipulation' }}
+                  className="w-full flex items-center gap-4 p-4 hover:bg-white/5 active:bg-palette-teal/10 transition-all group text-left stagger-entry stagger-3 select-none"
                 >
                   <PinkAsterisk />
-                  <div className="w-11 h-11 rounded-xl bg-zinc-900 overflow-hidden shrink-0 border border-white/10 relative">
+                  <div className="w-11 h-11 rounded-xl bg-zinc-900 overflow-hidden shrink-0 border border-white/10 relative pointer-events-none">
                     <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 pointer-events-none">
                     <h4 className="text-[16px] font-gurmukhi text-[#D1F2EB] group-active:text-palette-teal truncate leading-tight">{track.title}</h4>
                     <p className="text-[11px] text-zinc-500 font-medium truncate mt-0.5 font-garet">{track.artist}</p>
                   </div>
@@ -265,7 +274,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
       </div>
 
       {/* Action Footer */}
-      {genStatus === 'DONE' && (
+      {genStatus === 'DONE' && !isQueuePlaying && (
         <div 
           className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-3xl border-t border-white/10 p-5 z-[110]"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 32px)' }}
@@ -312,10 +321,10 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, o
               <button onClick={handlePlayOnSpotify} className="w-full bg-[#1DB954] text-white font-black py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all">
                  Play on Spotify
               </button>
-              {/* Push to Device (App Green Text) */}
+              {/* Push to Device (Solid App Green) */}
               <button 
                 onClick={handlePushToDevice} 
-                className={`w-full py-5 rounded-2xl font-garet uppercase tracking-widest text-xs active:scale-95 transition-all border ${hasDevices ? 'bg-palette-teal/10 border-palette-teal/30 text-palette-teal' : 'bg-zinc-800 border-zinc-700 text-zinc-500'}`}
+                className={`w-full py-5 rounded-2xl font-garet font-black uppercase tracking-widest text-xs active:scale-95 transition-all border border-white/10 ${hasDevices ? 'bg-palette-teal text-white shadow-lg shadow-palette-teal/20' : 'bg-zinc-800 border-zinc-700 text-zinc-500'}`}
               >
                  Push to Device
               </button>
