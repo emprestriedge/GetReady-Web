@@ -278,7 +278,7 @@ const App: React.FC = () => {
           })}
         </nav>
       </InkBackground>
-    </div>
+    </ErrorBoundary>
   );
 };
 
