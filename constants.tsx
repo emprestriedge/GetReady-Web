@@ -27,7 +27,6 @@ export const RAP_SOURCE_PLAYLIST_NAMES = [
   "Best Rap & Hip-Hop 90s/00s",
   "I Love My 90s Hip‑Hop",
   "80's & 90's Hip Hop / Rap💿",
-  "2Pac – All Eyez On Me",
   "2Pac – Greatest Hits",
   "Eminem All Songs"
 ];

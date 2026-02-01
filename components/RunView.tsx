@@ -30,14 +30,16 @@ type GenStatus = 'IDLE' | 'RUNNING' | 'DONE' | 'ERROR';
 const TrackRow: React.FC<{ 
   track: Track; 
   isActive: boolean;
-  onPlay: (t: Track) => void; 
+  index: number;
+  onPlay: (t: Track, i: number) => void; 
   onStatusToggle: (t: Track) => void; 
   onBlock: (t: Track) => void;
-}> = ({ track, isActive, onPlay, onStatusToggle, onBlock }) => {
+}> = ({ track, isActive, index, onPlay, onStatusToggle, onBlock }) => {
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const longPressTimer = useRef<number | null>(null);
+  const lastTapTime = useRef<number>(0);
   const SWIPE_LIMIT = -100;
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -48,6 +50,14 @@ const TrackRow: React.FC<{
       onStatusToggle(track);
       Haptics.impact();
     }, 600);
+
+    // Double Tap detection for mobile
+    const now = Date.now();
+    if (now - lastTapTime.current < 300) {
+      onPlay(track, index);
+      Haptics.impact();
+    }
+    lastTapTime.current = now;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -84,18 +94,15 @@ const TrackRow: React.FC<{
     touchStartX.current = null;
   };
 
-  // Logic: Single Tap to Play immediately (Refined for immediate feedback bug fix)
   const handleInteraction = () => {
-    onPlay(track);
+    onPlay(track, index);
   };
 
-  // Interaction visual: "Block" fades in as you swipe
   const blockTextOpacity = Math.min(1, Math.abs(swipeX) / 80);
   const blockBgOpacity = Math.min(0.8, Math.abs(swipeX) / 100);
 
   return (
     <div className="relative overflow-hidden bg-black first:rounded-t-[32px] last:rounded-b-[32px]">
-      {/* Dynamic Block Layer */}
       <div 
         className="absolute inset-0 flex items-center justify-end px-10 transition-colors pointer-events-none"
         style={{ backgroundColor: `rgba(255, 0, 122, ${blockBgOpacity * 0.3})` }}
@@ -110,6 +117,7 @@ const TrackRow: React.FC<{
 
       <button 
         onClick={handleInteraction}
+        onDoubleClick={() => onPlay(track, index)}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -253,23 +261,30 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     }
   };
 
-  const handlePlayTrack = async (track: Track) => {
+  const handlePlayTrack = async (track: Track, index: number) => {
     if (!result?.tracks) return;
     Haptics.light();
     setIsQueuePlaying(true); 
     setCurrentPlayingUri(track.uri);
-    
-    // Immediate Visibility Trigger for NowPlayingStrip
     onPlayTriggered?.();
     
     try {
       const devices = await SpotifyApi.getDevices();
       const active = devices.find(d => d.is_active);
-      const trackIdx = result.tracks.findIndex(t => t.uri === track.uri);
-      const queue = result.tracks.slice(trackIdx).map(t => t.uri);
+      const allUris = result.tracks.map(t => t.uri);
+
+      if (devices.length === 0) {
+        // Smart Kickstart: Open deep link if no devices found
+        const trackId = track.uri.split(':').pop();
+        toastService.show("Waking up Spotify... Tap the Back arrow to return.", "info");
+        window.location.href = `spotify:track:${trackId}`;
+        return;
+      }
 
       if (active) {
-        await spotifyPlayback.playUrisOnDevice(active.id, queue);
+        // Linear Playback Fix: Set shuffle false and use index-based offset
+        await spotifyPlayback.setShuffle(false, active.id);
+        await spotifyPlayback.playUrisOnDevice(active.id, allUris, index);
         Haptics.success();
       } else {
         setShowDevicePicker(true);
@@ -351,6 +366,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     Haptics.medium();
     const uris = result.runType === RunOptionType.MUSIC ? result.tracks?.map(t => t.uri) || [] : [result.episode?.uri].filter(Boolean) as string[];
     if (uris.length > 0) {
+       // Deep link starts at index 0 by default
        window.location.href = uris[0];
        setIsQueuePlaying(true);
        onPlayTriggered?.();
@@ -373,8 +389,10 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     
     try {
       const activeId = await spotifyPlayback.ensureActiveDevice(deviceId);
-      const uris = result.tracks.map(t => t.uri);
-      await spotifyPlayback.playUrisOnDevice(activeId, uris);
+      const allUris = result.tracks.map(t => t.uri);
+      // Main play button strictly starts at index 0
+      await spotifyPlayback.setShuffle(false, activeId);
+      await spotifyPlayback.playUrisOnDevice(activeId, allUris, 0);
       Haptics.success();
     } catch (e: any) {
       Haptics.error();
@@ -452,6 +470,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                     key={track.uri + i} 
                     track={track} 
                     isActive={currentPlayingUri === track.uri}
+                    index={i}
                     onPlay={handlePlayTrack} 
                     onStatusToggle={handleToggleStatus} 
                     onBlock={handleBlockTrack} 
@@ -503,7 +522,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         </div>
       )}
 
-      {/* Choice Modals */}
       {showPlayOptions && (
         <div className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in duration-400" onClick={() => setShowPlayOptions(false)}>
            <div className="bg-zinc-900 border border-white/10 rounded-[44px] p-8 w-full max-sm:px-6 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>

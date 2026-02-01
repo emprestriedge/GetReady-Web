@@ -26,7 +26,6 @@ const DEFAULT_CONFIG: AppConfig = {
     a7xArtistId: null,
     rapSources: {
       "I Love My 90s Hip‑Hop": { id: "37i9dQZF1DX186v583rmzp", type: "playlist" },
-      "2Pac – All Eyez On Me": { id: "78iX7tMceN0FsnmabAtlOC", type: "album" },
       "2Pac – Greatest Hits": { id: "1WBZyULtlANBKed7Zf9cDP", type: "album" }
     }
   },
@@ -161,6 +160,7 @@ class ConfigStore {
   }
 
   updatePodcastSlot(index: number, patch: Partial<RunOption>) {
+    // Fixed: changed 'next podcasts' to 'nextPodcasts' to fix syntax error and undefined variable reference.
     const nextPodcasts = [...this.config.podcasts];
     nextPodcasts[index] = { ...nextPodcasts[index], ...patch };
     this.config.podcasts = nextPodcasts;

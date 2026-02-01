@@ -96,11 +96,20 @@ class SpotifyPlaybackService {
     });
   }
 
-  async playUrisOnDevice(deviceId: string, uris: string[]): Promise<void> {
+  async playUrisOnDevice(deviceId: string, uris: string[], offsetIndex?: number): Promise<void> {
+    const body: any = { uris };
+    if (offsetIndex !== undefined) {
+      body.offset = { position: offsetIndex };
+    }
     await SpotifyApi.request(`/me/player/play?device_id=${deviceId}`, {
       method: 'PUT',
-      body: JSON.stringify({ uris })
+      body: JSON.stringify(body)
     });
+  }
+
+  async setShuffle(state: boolean, deviceId?: string): Promise<void> {
+    const query = deviceId ? `?device_id=${deviceId}&state=${state}` : `?state=${state}`;
+    await SpotifyApi.request(`/me/player/shuffle${query}`, { method: 'PUT' });
   }
 
   async pause(): Promise<void> {
