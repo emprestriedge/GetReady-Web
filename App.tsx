@@ -13,6 +13,7 @@ import { spotifyPlayback } from './services/spotifyPlaybackService';
 import { apiLogger } from './services/apiLogger';
 import { configStore } from './services/configStore';
 import { toastService, Toast } from './services/toastService';
+import { USE_MOCK_DATA, MOCK_HISTORY } from './constants';
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -23,7 +24,6 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// @fix: Using the named 'Component' import directly ensures that TypeScript correctly identifies this as a React class component with props/state generics, resolving the "Property 'props' does not exist" error.
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
@@ -73,6 +73,17 @@ const ToastOverlay: React.FC = () => {
   );
 };
 
+const DemoModeIndicator: React.FC = () => {
+  if (!USE_MOCK_DATA) return null;
+  return (
+    <div className="fixed bottom-16 right-4 z-[400] pointer-events-none">
+       <span className="bg-palette-gold/20 backdrop-blur-md border border-palette-gold/30 text-palette-gold text-[8px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full opacity-60">
+         DEMO MODE
+       </span>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('Home');
   const [homeKey, setHomeKey] = useState(0);
@@ -85,6 +96,11 @@ const App: React.FC = () => {
   const [activeRunResult, setActiveRunResult] = useState<RunResult | null>(null);
   const [showRunOverlay, setShowRunOverlay] = useState(false);
   const [authStatus, setAuthStatus] = useState<string>('idle');
+  
+  // Bug Fix: Player Visibility State
+  const [isPlayerVisible, setIsPlayerVisible] = useState(false);
+  // Bug Fix: Player Navigation State
+  const [isRunViewQueueMode, setIsRunViewQueueMode] = useState(false);
 
   useEffect(() => {
     const unsub = configStore.subscribe(() => {
@@ -94,10 +110,22 @@ const App: React.FC = () => {
     
     const loadHistory = () => {
       const saved = localStorage.getItem('spotify_buddy_history');
-      if (saved) setHistory(JSON.parse(saved));
+      if (saved) {
+        setHistory(JSON.parse(saved));
+      } else if (USE_MOCK_DATA) {
+        setHistory(MOCK_HISTORY);
+      }
     };
     
     const initSpotify = async () => {
+      if (USE_MOCK_DATA) {
+        const demoUser = await SpotifyApi.getMe();
+        setSpotifyUser(demoUser);
+        setAuthStatus('connected');
+        loadHistory();
+        return;
+      }
+
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       const state = urlParams.get('state');
@@ -132,9 +160,6 @@ const App: React.FC = () => {
 
   const handleTabClick = (tab: TabType) => {
     Haptics.light();
-    
-    // NAVIGATION PERSISTENCE: We no longer clear the active run on tab change.
-    // Instead, we just hide the overlay if it was showing.
     setShowRunOverlay(false);
 
     if (tab === activeTab) {
@@ -146,8 +171,9 @@ const App: React.FC = () => {
   };
 
   const handleStartRun = (option: RunOption) => {
+    setIsRunViewQueueMode(false); // Entering from Home = New Mix Mode
     setActiveRunOption(option);
-    setActiveRunResult(null); // Clear previous result when starting NEW run
+    setActiveRunResult(null); 
     setShowRunOverlay(true);
   };
 
@@ -163,15 +189,15 @@ const App: React.FC = () => {
     setHistory(updatedHistory);
     localStorage.setItem('spotify_buddy_history', JSON.stringify(updatedHistory));
     
-    // Keep result state so user can return to it
     setActiveRunResult(result);
     setShowRunOverlay(false);
-    setActiveTab('History');
+    setActiveTab('Vault');
   };
 
   const handleRestoreRun = () => {
     if (activeRunOption) {
       Haptics.medium();
+      setIsRunViewQueueMode(true); // Entering from Player Strip = Active Queue Mode
       setShowRunOverlay(true);
     }
   };
@@ -179,8 +205,6 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <InkBackground>
-        {/* pt-16 ensures content clears the iPhone notch area */}
-        {/* LAYOUT LOCKED: Optimized for iPhone 17 Pro Max. DO NOT MODIFY height (100dvh) or safe-area padding. */}
         <div id="main-content-scroller" className="flex-1 overflow-y-auto w-full relative pt-16">
           {activeTab === 'Home' && (
             <HomeView 
@@ -190,7 +214,7 @@ const App: React.FC = () => {
               setRules={setRules} 
             />
           )}
-          {activeTab === 'History' && (
+          {activeTab === 'Vault' && (
             <HistoryView history={history} />
           )}
           {activeTab === 'Settings' && (
@@ -215,17 +239,25 @@ const App: React.FC = () => {
             onComplete={handleRunComplete}
             initialResult={activeRunResult || undefined}
             onResultUpdate={setActiveRunResult}
+            onPlayTriggered={() => {
+               setIsPlayerVisible(true);
+               setIsRunViewQueueMode(true); // Once playing, we are in queue mode
+            }}
+            isQueueMode={isRunViewQueueMode}
           />
         )}
 
-        <NowPlayingStrip onStripClick={handleRestoreRun} />
+        {isPlayerVisible && (
+          <NowPlayingStrip 
+            onStripClick={handleRestoreRun} 
+            onClose={() => setIsPlayerVisible(false)}
+          />
+        )}
         <ToastOverlay />
+        <DemoModeIndicator />
 
-        {/* Compact Bottom Navigation: Reduced py from 2 to 1 (approx 10-15% height reduction) */}
-        {/* z-[300] ensures it is visible on top of all views, including fixed overlays like RunView. bg-black/40 for higher transparency. */}
-        {/* NAV BAR LOCKED: Height and Transparency fixed. Do not resize. */}
         <nav className="fixed bottom-0 left-0 right-0 bg-black/40 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center px-6 py-1 z-[300]">
-          {(['Home', 'History', 'Settings'] as TabType[]).map((tab) => {
+          {(['Home', 'Vault', 'Settings'] as TabType[]).map((tab) => {
             const isActive = activeTab === tab;
             return (
               <button 
@@ -235,18 +267,18 @@ const App: React.FC = () => {
               >
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isActive ? 'bg-palette-pink text-white shadow-lg shadow-palette-pink/30' : 'text-zinc-400'}`}>
                   {tab === 'Home' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>}
-                  {tab === 'History' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>}
+                  {tab === 'Vault' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 12l10 10 10-10L12 2z"/></svg>}
                   {tab === 'Settings' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>}
                 </div>
                 <span className={`text-[8px] font-black uppercase tracking-widest ${isActive ? 'text-palette-pink' : 'text-zinc-600'}`}>
-                  {tab}
+                  {tab === 'Vault' ? 'Vault' : tab}
                 </span>
               </button>
             );
           })}
         </nav>
       </InkBackground>
-    </ErrorBoundary>
+    </div>
   );
 };
 

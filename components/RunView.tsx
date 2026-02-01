@@ -21,6 +21,8 @@ interface RunViewProps {
   onNavigateToHistory?: () => void;
   initialResult?: RunResult;
   onResultUpdate?: (result: RunResult) => void;
+  onPlayTriggered?: () => void;
+  isQueueMode?: boolean;
 }
 
 type GenStatus = 'IDLE' | 'RUNNING' | 'DONE' | 'ERROR';
@@ -34,7 +36,6 @@ const TrackRow: React.FC<{
 }> = ({ track, isActive, onPlay, onStatusToggle, onBlock }) => {
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
-  const [lastTap, setLastTap] = useState(0);
   const touchStartX = useRef<number | null>(null);
   const longPressTimer = useRef<number | null>(null);
   const SWIPE_LIMIT = -100;
@@ -46,7 +47,6 @@ const TrackRow: React.FC<{
     longPressTimer.current = window.setTimeout(() => {
       onStatusToggle(track);
       Haptics.impact();
-      setLastTap(0); // Prevent play on release
     }, 600);
   };
 
@@ -84,16 +84,9 @@ const TrackRow: React.FC<{
     touchStartX.current = null;
   };
 
-  // Logic: Double Tap to Play immediately
+  // Logic: Single Tap to Play immediately (Refined for immediate feedback bug fix)
   const handleInteraction = () => {
-    const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
-    if (now - lastTap < DOUBLE_TAP_DELAY) {
-      onPlay(track);
-      setLastTap(0);
-    } else {
-      setLastTap(now);
-    }
+    onPlay(track);
   };
 
   // Interaction visual: "Block" fades in as you swipe
@@ -102,7 +95,7 @@ const TrackRow: React.FC<{
 
   return (
     <div className="relative overflow-hidden bg-black first:rounded-t-[32px] last:rounded-b-[32px]">
-      {/* Dynamic Block Layer: Replaces the static red background to prevent bleed */}
+      {/* Dynamic Block Layer */}
       <div 
         className="absolute inset-0 flex items-center justify-end px-10 transition-colors pointer-events-none"
         style={{ backgroundColor: `rgba(255, 0, 122, ${blockBgOpacity * 0.3})` }}
@@ -125,7 +118,6 @@ const TrackRow: React.FC<{
           transform: `translateX(${swipeX}px)`,
           transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.23, 1, 0.32, 1)'
         }}
-        /* Obsidian Jelly Glass Styling: Zero red, deep charcoal/black translucent base */
         className={`w-full flex items-center gap-4 p-5 transition-all group text-left select-none relative z-10 border-b border-[#6D28D9]/20 ${
           isActive 
             ? 'bg-palette-teal/15 border-palette-teal/40 shadow-[inset_0_0_40px_rgba(45,185,177,0.15)]' 
@@ -134,14 +126,12 @@ const TrackRow: React.FC<{
       >
         <div className="relative shrink-0 flex items-center justify-center min-w-[24px]">
           {isActive ? (
-            /* Teal Frequency visualizer for active song */
             <div className="flex gap-0.5 items-end h-4 mb-0.5">
                <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.6s_ease-in-out_infinite]" style={{ height: '100%' }} />
                <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.8s_ease-in-out_infinite]" style={{ height: '60%' }} />
                <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.7s_ease-in-out_infinite]" style={{ height: '85%' }} />
             </div>
           ) : (
-            /* Asterisk: Pink for saved, Grey for not saved */
             <StatusAsterisk status={track.status === 'liked' || track.status === 'gem' ? 'liked' : 'none'} />
           )}
         </div>
@@ -152,10 +142,10 @@ const TrackRow: React.FC<{
         </div>
 
         <div className="flex-1 min-w-0 pointer-events-none">
-          <h4 className={`text-[17px] font-gurmukhi truncate leading-tight transition-colors duration-300 ${isActive ? 'text-palette-teal' : 'text-[#D1F2EB] group-active:text-palette-teal'}`}>
+          <h4 className={`text-[15px] font-gurmukhi leading-tight transition-colors duration-300 truncate ${isActive ? 'text-palette-teal' : 'text-[#D1F2EB] group-active:text-palette-teal'}`}>
             {track.title}
           </h4>
-          <p className="text-[12px] text-zinc-500 font-medium truncate mt-1 font-garet">{track.artist}</p>
+          <p className="text-[11px] text-zinc-500 font-medium truncate mt-1 font-garet">{track.artist}</p>
         </div>
         
         <div className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${isActive ? 'bg-palette-teal scale-125 shadow-[0_0_10px_rgba(45,185,177,1)]' : 'bg-zinc-800'}`} />
@@ -164,13 +154,13 @@ const TrackRow: React.FC<{
   );
 };
 
-const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, initialResult, onResultUpdate }) => {
+const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, initialResult, onResultUpdate, onPlayTriggered, isQueueMode }) => {
   const [genStatus, setGenStatus] = useState<GenStatus>(initialResult ? 'DONE' : 'IDLE');
   const [showPlayOptions, setShowPlayOptions] = useState(false);
   const [showSaveOptions, setShowSaveOptions] = useState(false);
   const [showSaveConfirmDialog, setShowSaveConfirmDialog] = useState<'logs' | 'spotify' | null>(null);
   const [showDevicePicker, setShowDevicePicker] = useState(false);
-  const [isQueuePlaying, setIsQueuePlaying] = useState(false);
+  const [isQueuePlaying, setIsQueuePlaying] = useState(isQueueMode || false);
   const [currentPlayingUri, setCurrentPlayingUri] = useState<string | null>(null);
   
   const [result, setResult] = useState<RunResult | null>(initialResult || null);
@@ -191,7 +181,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     if (!initialResult && genStatus === 'IDLE') startRun();
     checkDeviceStatus();
 
-    // Active playback polling for highlighting current track
     const pollPlayback = async () => {
       try {
         const state = await SpotifyApi.request('/me/player');
@@ -270,6 +259,9 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     setIsQueuePlaying(true); 
     setCurrentPlayingUri(track.uri);
     
+    // Immediate Visibility Trigger for NowPlayingStrip
+    onPlayTriggered?.();
+    
     try {
       const devices = await SpotifyApi.getDevices();
       const active = devices.find(d => d.is_active);
@@ -290,11 +282,9 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
 
   const handleToggleStatus = async (track: Track) => {
     if (!result || !result.tracks) return;
-    const trackId = track.uri.split(':').pop() || '';
     const currentTrack = result.tracks.find(t => t.uri === track.uri);
     if (!currentTrack) return;
     
-    // Interaction Refactor: Simplified toggle between Pink (Saved) and Grey (Not Saved)
     const nextStatus: Track['status'] = currentTrack.status === 'liked' ? 'none' : 'liked';
 
     setResult(prev => {
@@ -310,7 +300,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
 
     try {
       if (nextStatus === 'liked') {
-        // Direct save to "GetReady Gems"
         await SpotifyDataService.addTrackToGems(track.uri);
         toastService.show("Added to GetReady Gems", "success");
       } else {
@@ -364,6 +353,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     if (uris.length > 0) {
        window.location.href = uris[0];
        setIsQueuePlaying(true);
+       onPlayTriggered?.();
     }
     setShowPlayOptions(false);
   };
@@ -379,6 +369,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     Haptics.medium();
     setShowDevicePicker(false);
     setIsQueuePlaying(true);
+    onPlayTriggered?.();
     
     try {
       const activeId = await spotifyPlayback.ensureActiveDevice(deviceId);
@@ -401,8 +392,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   }, [result]);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-500 overflow-hidden text-[#A9E8DF]">
-      {/* Top Header */}
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-500 overflow-x-hidden w-full max-w-[100vw] text-[#A9E8DF]">
       <div className="px-6 pb-6 flex items-center justify-between border-b border-white/5 bg-black/30 shrink-0 pt-16">
         <button onClick={() => { Haptics.light(); onClose(); }} className="text-palette-pink text-[14px] font-black uppercase tracking-[0.2em] active:opacity-50 transition-opacity">
           Back
@@ -411,7 +401,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         <div className="w-12" />
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-8 pb-[500px]">
+      <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-8 pb-40 overflow-x-hidden w-full">
         {genStatus === 'RUNNING' ? (
           <div className="h-full flex flex-col items-center justify-center text-center gap-12 animate-in fade-in duration-1000">
              <div className="relative">
@@ -428,8 +418,24 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         ) : (
           <div className="flex flex-col gap-6">
              <header className="flex flex-col gap-1 px-4 stagger-entry stagger-1">
-              <h2 className="text-6xl leading-none font-mango header-ombre tracking-tighter drop-shadow-2xl">{option.name}</h2>
-              <div className="flex items-center gap-3 mt-4">
+              <style>{`
+                @keyframes force-marquee {
+                  0% { transform: translateX(100%); }
+                  100% { transform: translateX(-100%); }
+                }
+                .force-marquee-text {
+                  display: inline-block;
+                  white-space: nowrap;
+                  animation: force-marquee 15s linear infinite;
+                  will-change: transform;
+                }
+              `}</style>
+              <div className="w-full overflow-hidden whitespace-nowrap relative py-2 mb-2">
+                <h2 className="leading-none font-mango header-ombre tracking-tighter drop-shadow-2xl text-[44px] force-marquee-text">
+                  {option.name}
+                </h2>
+              </div>
+              <div className="flex items-center gap-3">
                 <div className="bg-palette-gold/10 border border-palette-gold/30 px-3 py-1 rounded-xl">
                   <span className="text-palette-gold text-[10px] font-black uppercase tracking-[0.15em]">{result?.tracks?.length || 0} Tracks</span>
                 </div>
@@ -439,7 +445,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
               </div>
             </header>
 
-            {/* Obsidian Glass List: Dual-tone shadow (Teal & Purple) with Purple Flash dividers */}
             <div className="bg-[#0a0a0a]/60 backdrop-blur-3xl rounded-[32px] overflow-hidden border border-white/10 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.9),0_0_40px_rgba(109,40,217,0.1),0_0_40px_rgba(45,185,177,0.05)] stagger-entry stagger-2">
               <div className="divide-y divide-[#6D28D9]/20">
                 {result?.tracks?.map((track, i) => (
@@ -458,10 +463,9 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         )}
       </div>
 
-      {/* Footer Persistent Bar */}
       {genStatus === 'DONE' && !isQueuePlaying && (
         <div 
-          className="fixed bottom-[56px] left-0 right-0 bg-black/80 backdrop-blur-[60px] border-t border-white/10 p-6 z-[110]"
+          className="fixed bottom-[56px] left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-[60px] border-t border-white/10 p-6 z-[110] shadow-[0_-10px_40px_rgba(0,0,0,0.8)]"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
         >
            <div className="flex flex-col gap-4 max-w-lg mx-auto w-full">
@@ -485,14 +489,16 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                  </button>
               </div>
 
-              <button 
-                onClick={startRun}
-                className="relative overflow-hidden w-full bg-gradient-to-br from-[#FF007A] to-[#FF4D9F] text-white font-black py-5 rounded-[24px] active:scale-[0.96] transition-all font-garet uppercase tracking-[0.25em] text-[13px] flex items-center justify-center gap-4 shadow-2xl shadow-palette-pink/30 border border-white/20"
-              >
-                 <div className="absolute top-1.5 left-3 w-[92%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
-                 <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                 <span className="relative z-10">Regenerate Mix</span>
-              </button>
+              {option.type === RunOptionType.MUSIC && (
+                <button 
+                  onClick={startRun}
+                  className="relative overflow-hidden w-full bg-gradient-to-br from-[#FF007A] to-[#FF4D9F] text-white font-black py-5 rounded-[24px] active:scale-[0.96] transition-all font-garet uppercase tracking-[0.25em] text-[13px] flex items-center justify-center gap-4 shadow-2xl shadow-palette-pink/30 border border-white/20"
+                >
+                   <div className="absolute top-1.5 left-3 w-[92%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
+                   <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                   <span className="relative z-10">Regenerate Mix</span>
+                </button>
+              )}
            </div>
         </div>
       )}
@@ -500,7 +506,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       {/* Choice Modals */}
       {showPlayOptions && (
         <div className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in duration-400" onClick={() => setShowPlayOptions(false)}>
-           <div className="bg-zinc-900 border border-white/10 rounded-[44px] p-8 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
+           <div className="bg-zinc-900 border border-white/10 rounded-[44px] p-8 w-full max-sm:px-6 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
               <button onClick={handlePlayOnSpotify} className="relative overflow-hidden w-full bg-[#1DB954] text-white font-black py-6 rounded-3xl font-garet uppercase tracking-widest text-[13px] active:scale-95 transition-all">
                  <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
                  Play on Spotify

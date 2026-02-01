@@ -1,7 +1,19 @@
-
 import { SpotifyApi } from './spotifyApi';
 import { SpotifyTrack, SpotifyEpisode, SpotifyArtist } from '../types';
 import { apiLogger } from './apiLogger';
+import { USE_MOCK_DATA, MOCK_TRACKS } from '../constants';
+
+/**
+ * shuffleArray - Fisher-Yates shuffle algorithm for high-quality randomization.
+ */
+const shuffleArray = <T>(array: T[]): T[] => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
 
 /**
  * normalizeLimit - Ensures limit is an integer between 1 and maxValue.
@@ -32,12 +44,28 @@ export const SpotifyDataService = {
   },
 
   getLikedTracks: async (limit = 20, offset = 0): Promise<SpotifyTrack[]> => {
+    if (USE_MOCK_DATA) {
+      // Simulate real randomization for mock mode by shuffling the entire MOCK_TRACKS pool
+      const mockPool = MOCK_TRACKS.map(t => ({
+        id: t.uri.split(':').pop() || '',
+        name: t.title,
+        uri: t.uri,
+        artists: [{ name: t.artist, id: 'mock_artist' }],
+        album: { name: t.album || 'Mock Album', id: 'mock_album', images: [{ url: t.imageUrl || '' }] },
+        duration_ms: t.durationMs
+      })) as SpotifyTrack[];
+      return shuffleArray(mockPool).slice(0, limit);
+    }
+
     const nLimit = normalizeLimit('/me/tracks', limit, 20, 50);
     const data = await SpotifyApi.request(`/me/tracks?limit=${nLimit}&offset=${offset}`);
     return data.items.map((item: any) => item.track);
   },
 
   getLikedTracksIds: async (limit = 50): Promise<Set<string>> => {
+    if (USE_MOCK_DATA) {
+      return new Set(MOCK_TRACKS.slice(0, limit).map(t => t.uri.split(':').pop() || ''));
+    }
     const nLimit = normalizeLimit('/me/tracks', limit, 50, 50);
     const data = await SpotifyApi.request(`/me/tracks?limit=${nLimit}`);
     return new Set(data.items.map((item: any) => item.track.id));
@@ -99,6 +127,24 @@ export const SpotifyDataService = {
   },
 
   getPlaylistTracks: async (playlistId: string, limit = 50, offset = 0): Promise<SpotifyTrack[]> => {
+    if (USE_MOCK_DATA) {
+      // Mock randomization: Shuffling the pool ensures "Regenerate" looks different every time.
+      const mockPool = MOCK_TRACKS.map(t => ({
+        id: t.uri.split(':').pop() || '',
+        name: t.title,
+        uri: t.uri,
+        artists: [{ name: t.artist, id: 'mock_artist' }],
+        album: { 
+          name: t.album || 'Mock Album', 
+          id: 'mock_album', 
+          images: [{ url: t.imageUrl || '' }],
+          release_date: "1999-01-01" // Mock a 90s date for filtering tests
+        },
+        duration_ms: t.durationMs
+      })) as SpotifyTrack[];
+      return shuffleArray(mockPool).slice(0, limit);
+    }
+
     if (!playlistId || playlistId === "Unlinked") {
        throw new Error("Playlist ID is missing or unlinked.");
     }
@@ -336,7 +382,7 @@ export const SpotifyDataService = {
       trackPool = await buildTrackPool(Array.from(albumMap.values()));
     }
 
-    const shuffled = [...trackPool].sort(() => Math.random() - 0.5);
+    const shuffled = shuffleArray(trackPool);
     const selected: SpotifyTrack[] = [];
     const albumCounts = new Map<string, number>();
     let lastAlbumId = '';
@@ -416,6 +462,57 @@ export const SpotifyDataService = {
   },
 
   getShowEpisodes: async (showId: string, limit = 50, market?: string): Promise<SpotifyEpisode[]> => {
+    if (USE_MOCK_DATA) {
+      apiLogger.logClick(`Mock Data: Generating 5 episodes for show ${showId}`);
+      return [
+        {
+          id: 'mock_ep_1',
+          name: 'The Future of AI Design Systems',
+          description: 'Exploring how generative models are reshaping the developer experience.',
+          release_date: '2024-02-24',
+          duration_ms: 1800000,
+          images: [{ url: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&q=80&w=300&h=300' }],
+          uri: 'spotify:episode:mock1'
+        },
+        {
+          id: 'mock_ep_2',
+          name: 'The Obsidian Methodology',
+          description: 'Deep dive into high-contrast UI patterns and organic animations.',
+          release_date: '2024-02-17',
+          duration_ms: 2400000,
+          images: [{ url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&q=80&w=300&h=300' }],
+          uri: 'spotify:episode:mock2'
+        },
+        {
+          id: 'mock_ep_3',
+          name: 'Weekly Roundup: Composition Engines',
+          description: 'Weekly summary of advancements in real-time catalog syncing.',
+          release_date: '2024-02-10',
+          duration_ms: 2100000,
+          images: [{ url: 'https://images.unsplash.com/photo-1558489580-faa74691fdc5?auto=format&fit=crop&q=80&w=300&h=300' }],
+          uri: 'spotify:episode:mock3'
+        },
+        {
+          id: 'mock_ep_4',
+          name: 'Haptic Feedback in Modern PWA',
+          description: 'Why tactile communication is the missing link in mobile web apps.',
+          release_date: '2024-02-03',
+          duration_ms: 1500000,
+          images: [{ url: 'https://images.unsplash.com/photo-1478737270239-2fccd2c7862a?auto=format&fit=crop&q=80&w=300&h=300' }],
+          uri: 'spotify:episode:mock4'
+        },
+        {
+          id: 'mock_ep_5',
+          name: 'Bonus: The Architecture of GetReady',
+          description: 'A look behind the scenes of the prototype you are using right now.',
+          release_date: '2024-01-27',
+          duration_ms: 3600000,
+          images: [{ url: 'https://images.unsplash.com/photo-1589903308914-1293a6bb1f8c?auto=format&fit=crop&q=80&w=300&h=300' }],
+          uri: 'spotify:episode:mock5'
+        }
+      ];
+    }
+
     const nLimit = normalizeLimit(`/shows/${showId}/episodes`, limit, 5, 50);
     let url = `/shows/${showId}/episodes?limit=${nLimit}`;
     if (market && market.length === 2) url += `&market=${market}`;

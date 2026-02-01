@@ -1,5 +1,4 @@
-
-export type TabType = 'Home' | 'History' | 'Settings';
+export type TabType = 'Home' | 'Vault' | 'Settings';
 
 export enum RunOptionType {
   MUSIC = 'MUSIC',

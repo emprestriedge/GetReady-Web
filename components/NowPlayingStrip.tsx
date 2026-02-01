@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { SpotifyApi } from '../services/spotifyApi';
 import { spotifyPlayback } from '../services/spotifyPlaybackService';
@@ -6,23 +5,33 @@ import { Haptics } from '../services/haptics';
 
 interface NowPlayingStripProps {
   onStripClick?: () => void;
+  onClose?: () => void;
 }
 
-const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
+const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick, onClose }) => {
   const [playbackState, setPlaybackState] = useState<any>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isManuallyDismissed, setIsManuallyDismissed] = useState(false);
+  const lastTrackUri = useRef<string | null>(null);
   
   // Gesture State
   const [dragX, setDragX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const touchStartX = useRef<number | null>(null);
-  const DISMISS_THRESHOLD = 120; // px to trigger dismissal
+  const hasMovedSignificant = useRef(false);
+  const DISMISS_THRESHOLD = 50; // px to trigger dismissal
 
   const fetchPlayback = async () => {
     try {
       const state = await SpotifyApi.request('/me/player');
+      // Bug Fix: Explicitly check for item to ensure we have content to display
       if (state && state.item) {
+        // Auto-reappear logic: If the track has changed, reset manual dismissal
+        if (state.item.uri !== lastTrackUri.current) {
+          setIsManuallyDismissed(false);
+          lastTrackUri.current = state.item.uri;
+        }
+
         setPlaybackState(state);
         if (!isManuallyDismissed) {
           setIsVisible(true);
@@ -45,12 +54,18 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     setIsSwiping(true);
+    hasMovedSignificant.current = false;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (touchStartX.current === null) return;
     const currentX = e.touches[0].clientX;
     const deltaX = currentX - touchStartX.current;
+    
+    if (Math.abs(deltaX) > 5) {
+      hasMovedSignificant.current = true;
+    }
+    
     setDragX(deltaX);
   };
 
@@ -62,22 +77,35 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
 
     if (Math.abs(finalX) > DISMISS_THRESHOLD) {
       Haptics.impact();
+      // Animation toward exit
       const exitDirection = finalX > 0 ? 500 : -500;
       setDragX(exitDirection);
 
       try {
+        // Audio must stop immediately
         await spotifyPlayback.pause();
+        
         setTimeout(() => {
           setIsVisible(false);
           setIsManuallyDismissed(true);
           setDragX(0);
+          // Inform parent to hide the player entirely
+          onClose?.();
         }, 300);
       } catch (err) {
         setIsVisible(false);
         setIsManuallyDismissed(true);
+        onClose?.();
       }
     } else {
       setDragX(0);
+    }
+  };
+
+  const handleContainerClick = () => {
+    // Only trigger if it wasn't a swipe
+    if (!hasMovedSignificant.current) {
+      onStripClick?.();
     }
   };
 
@@ -86,7 +114,10 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
   const track = playbackState.item;
   const isPlaying = playbackState.is_playing;
   const deviceName = playbackState.device?.name || 'Spotify Device';
+  
+  // Normalize mapping for Track vs Episode metadata
   const imageUrl = track.album?.images?.[0]?.url || track.images?.[0]?.url;
+  const artistName = track.artists?.[0]?.name || track.show?.name || 'Spotify';
   
   const progressMs = playbackState.progress_ms || 0;
   const durationMs = track.duration_ms || 1;
@@ -126,20 +157,19 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
 
   return (
     <div 
-      className={`fixed left-4 right-4 z-[200] cursor-pointer touch-none select-none ${!isSwiping ? 'transition-all duration-300' : ''}`}
+      className={`fixed left-4 right-4 z-[150] cursor-pointer touch-none select-none ${!isSwiping ? 'transition-all duration-300' : ''}`}
       style={{ 
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 30px)',
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 92px)',
         transform: `translateX(${dragX}px)`,
-        opacity: Math.max(0, 1 - Math.abs(dragX) / (DISMISS_THRESHOLD * 2))
+        // Fade out opacity as the user swipes
+        opacity: Math.max(0, 1 - Math.abs(dragX) / (DISMISS_THRESHOLD * 2.5))
       }}
-      onClick={() => onStripClick?.()}
+      onClick={handleContainerClick}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Black Jelly Glass Container: Reduced background opacity to 25% for better transparency */}
       <div className="bg-black/25 backdrop-blur-[40px] border border-white/10 rounded-[34px] overflow-hidden flex flex-col shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)] transition-all active:scale-[0.99]">
-        {/* Progress Bar */}
         <div className="w-full h-[3px] bg-white/5">
           <div 
             className="h-full bg-palette-teal shadow-[0_0_12px_rgba(45,185,177,0.8)] transition-all duration-1000 ease-linear"
@@ -147,7 +177,6 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
           />
         </div>
         
-        {/* Main Interface */}
         <div className="px-5 py-5 flex items-center gap-4">
           <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 border border-white/10 relative shadow-xl">
             <img src={imageUrl} className="w-full h-full object-cover" alt="Art" />
@@ -164,7 +193,7 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
             </h4>
             <div className="flex items-center gap-1.5 mt-1.5">
               <span className="text-[11px] text-zinc-300 font-bold truncate max-w-[55%] drop-shadow-sm">
-                {track.artists?.[0]?.name || track.show?.name || 'Spotify'}
+                {artistName}
               </span>
               <span className="text-white/20 font-black text-[8px] shrink-0">•</span>
               <span className="text-[10px] text-palette-teal font-black uppercase tracking-[0.1em] truncate drop-shadow-sm">
@@ -173,7 +202,6 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick }) => {
             </div>
           </div>
 
-          {/* Controls: Enhanced Visibility */}
           <div className="flex items-center gap-2 pr-1">
             <button 
               onClick={handlePrevious}

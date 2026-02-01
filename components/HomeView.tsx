@@ -165,13 +165,13 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
   );
 
   const renderRoot = () => (
-    <div className="flex flex-col gap-4 px-4 pb-12 w-full max-w-full overflow-x-hidden">
+    <div className="flex flex-col gap-4 px-4 pb-40 w-full max-w-[100vw] overflow-x-hidden">
       <header className="mb-6 pl-8 stagger-entry stagger-1">
         <h1 className="text-7xl font-mango header-ombre leading-none tracking-tighter">Library</h1>
         <p className="ios-caption text-zinc-500 text-[10px] font-black uppercase tracking-[0.3em] mt-5 ml-1">Daily Catalog</p>
       </header>
 
-      <div className="flex flex-col gap-4 mb-6 stagger-entry stagger-2">
+      <div className="flex flex-col gap-4 mb-6 stagger-entry stagger-2 w-full">
         <CategoryCard 
           title="Music" description="Custom mixes from your top tracks."
           icon={<svg className="w-10 h-10 text-white opacity-100" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>}
@@ -186,7 +186,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
         />
       </div>
 
-      <div className="glass-panel-gold rounded-[40px] p-4 sm:p-6 border-white/10 relative overflow-hidden group stagger-entry stagger-3">
+      <div className="glass-panel-gold rounded-[40px] p-4 sm:p-6 border-white/10 relative overflow-hidden group stagger-entry stagger-3 w-full">
         <div className="absolute top-0 right-0 p-4 opacity-10">
           <svg className="w-12 h-12 text-palette-pink" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71L12 2z"/></svg>
         </div>
@@ -284,7 +284,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
 
     const title = isMusic ? 'Music' : 'Shows';
     return (
-      <div className="flex flex-col gap-6 px-4 w-full max-w-full overflow-x-hidden">
+      <div className="flex flex-col gap-6 px-4 w-full max-w-[100vw] overflow-x-hidden pb-40">
         <header className="flex flex-col gap-2 pl-8 stagger-entry stagger-1">
           <button onClick={() => navigateTo('root')} className="text-palette-pink flex items-center gap-1 active:opacity-50 font-black text-xs uppercase tracking-widest"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M15 19l-7-7 7-7" /></svg><span className="font-garet font-bold">Library</span></button>
           <h2 className="text-7xl font-mango header-ombre leading-none mt-2 tracking-tighter">{title}</h2>
@@ -299,7 +299,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
   };
 
   return (
-    <div className="relative flex flex-col flex-1 pb-24 w-full max-w-full overflow-x-hidden">
+    <div className="relative flex flex-col flex-1 pb-24 w-full max-w-[100vw] overflow-x-hidden">
       {viewMode === 'root' && renderRoot()}
       {viewMode === 'music' && renderList(RunOptionType.MUSIC)}
       {viewMode === 'podcast' && renderList(RunOptionType.PODCAST)}
@@ -345,7 +345,7 @@ const OptionRow: React.FC<{ option: RunOption; onClick: () => void; isMusic?: bo
       disabled={!isReady}
       className={`w-full text-left px-4 sm:px-6 py-5 sm:py-6 transition-all flex items-center group relative active:scale-[0.98] ${isReady ? 'active:bg-white/10' : 'opacity-40 cursor-not-allowed grayscale'}`}
     >
-      <StatusAsterisk status="none" />
+      <StatusAsterisk status="liked" />
       <div className="flex-1 flex flex-col min-w-0 pr-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-[21px] sm:text-[23px] font-gurmukhi text-[#A9E8DF] group-active:text-palette-pink transition-colors truncate max-w-[95%]`}>

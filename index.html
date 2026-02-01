@@ -76,7 +76,29 @@
             -moz-osx-font-smoothing: grayscale;
             color: #fff;
             letter-spacing: -0.015em;
-            /* touch-action: none removed to allow scrolling on internal containers */
+        }
+
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            10% { transform: translateX(0); }
+            45% { transform: translateX(-40%); }
+            55% { transform: translateX(-40%); }
+            90% { transform: translateX(0); }
+            100% { transform: translateX(0); }
+        }
+
+        .marquee-content {
+            display: inline-block;
+            white-space: nowrap;
+            min-width: 100%;
+            animation: marquee 12s ease-in-out infinite;
+        }
+
+        .marquee-container {
+            overflow: hidden;
+            white-space: nowrap;
+            mask-image: linear-gradient(to right, black 85%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
         }
 
         @keyframes highlightShimmer {

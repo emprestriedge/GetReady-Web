@@ -51,11 +51,13 @@ export const SpotifyAuth = {
   },
 
   /**
-   * getRedirectUri - Returns the STRICT hardcoded URI for production.
-   * This must match EXACTLY what is entered in the Spotify Developer Dashboard.
+   * getRedirectUri - Returns the dynamic URI based on current environment.
+   * Ensures the OAuth flow is portable across different hostnames.
    */
   getRedirectUri: () => {
-    return 'https://getready3.netlify.app/';
+    const origin = window.location.origin;
+    // Add trailing slash if not present to match standard Spotify settings
+    return origin.endsWith('/') ? origin : `${origin}/`;
   },
 
   generateRandomString: (length: number) => {
