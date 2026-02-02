@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RunOption, RuleSettings, RunResult, RunOptionType, SpotifyDevice, Track, PodcastShowCandidate } from '../types';
 import { RuleOverrideStore } from '../services/ruleOverrideStore';
@@ -9,6 +10,7 @@ import { SpotifyApi } from '../services/spotifyApi';
 import { SpotifyDataService } from '../services/spotifyDataService';
 import { BlockStore } from '../services/blockStore';
 import { ContentIdStore } from '../services/contentIdStore';
+import { apiLogger } from '../services/apiLogger';
 import DevicePickerModal from './DevicePickerModal';
 import { StatusAsterisk } from './HomeView';
 import { toastService } from '../services/toastService';
@@ -170,6 +172,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   const [showDevicePicker, setShowDevicePicker] = useState(false);
   const [isQueuePlaying, setIsQueuePlaying] = useState(isQueueMode || false);
   const [currentPlayingUri, setCurrentPlayingUri] = useState<string | null>(null);
+  const [showWakeUpPrompt, setShowWakeUpPrompt] = useState<string | null>(null);
   
   const [result, setResult] = useState<RunResult | null>(initialResult || null);
   const [error, setError] = useState<string | null>(null);
@@ -194,6 +197,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         const state = await SpotifyApi.request('/me/player');
         if (state?.item?.uri) {
           setCurrentPlayingUri(state.item.uri);
+          if (state.is_playing) setShowWakeUpPrompt(null);
         }
       } catch (e) {}
     };
@@ -272,17 +276,41 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       const devices = await SpotifyApi.getDevices();
       const active = devices.find(d => d.is_active);
       const allUris = result.tracks.map(t => t.uri);
+      const localId = spotifyPlayback.getDeviceId();
 
-      if (devices.length === 0) {
-        // Smart Kickstart: Open deep link if no devices found
-        const trackId = track.uri.split(':').pop();
-        toastService.show("Waking up Spotify... Tap the Back arrow to return.", "info");
-        window.location.href = `spotify:track:${trackId}`;
-        return;
+      if (!active) {
+        // Silent Wake-up Strategy
+        if (localId) {
+          apiLogger.logClick(`Engine: Attempting Silent Wake-up via local device ${localId}`);
+          try {
+            await spotifyPlayback.transferPlayback(localId, true);
+            await new Promise(r => setTimeout(r, 400)); // Small buffer for transfer
+            await spotifyPlayback.setShuffle(false, localId);
+            await spotifyPlayback.playUrisOnDevice(localId, allUris, index);
+            Haptics.success();
+
+            // Verification phase: Wait 2s to see if playback actually starts
+            setTimeout(async () => {
+              const checkState = await SpotifyApi.request('/me/player');
+              if (!checkState || !checkState.is_playing) {
+                setShowWakeUpPrompt(track.uri);
+                Haptics.error();
+              }
+            }, 2000);
+            return;
+          } catch (e) {
+             // Continue to fallback
+          }
+        }
+
+        // Deep Link Fallback if no local player or transfer failed
+        if (devices.length === 0) {
+           setShowWakeUpPrompt(track.uri);
+           return;
+        }
       }
 
       if (active) {
-        // Linear Playback Fix: Set shuffle false and use index-based offset
         await spotifyPlayback.setShuffle(false, active.id);
         await spotifyPlayback.playUrisOnDevice(active.id, allUris, index);
         Haptics.success();
@@ -293,6 +321,15 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       setIsQueuePlaying(false);
       toastService.show(e.message || "Playback failed", "error");
     }
+  };
+
+  const triggerWakeUp = () => {
+    if (!showWakeUpPrompt) return;
+    Haptics.impact();
+    const trackId = showWakeUpPrompt.split(':').pop();
+    toastService.show("Waking up Spotify... Tap the Back arrow to return.", "info");
+    window.location.href = `spotify:track:${trackId}`;
+    setShowWakeUpPrompt(null);
   };
 
   const handleToggleStatus = async (track: Track) => {
@@ -366,7 +403,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     Haptics.medium();
     const uris = result.runType === RunOptionType.MUSIC ? result.tracks?.map(t => t.uri) || [] : [result.episode?.uri].filter(Boolean) as string[];
     if (uris.length > 0) {
-       // Deep link starts at index 0 by default
        window.location.href = uris[0];
        setIsQueuePlaying(true);
        onPlayTriggered?.();
@@ -390,7 +426,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     try {
       const activeId = await spotifyPlayback.ensureActiveDevice(deviceId);
       const allUris = result.tracks.map(t => t.uri);
-      // Main play button strictly starts at index 0
       await spotifyPlayback.setShuffle(false, activeId);
       await spotifyPlayback.playUrisOnDevice(activeId, allUris, 0);
       Haptics.success();
@@ -415,7 +450,12 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         <button onClick={() => { Haptics.light(); onClose(); }} className="text-palette-pink text-[14px] font-black uppercase tracking-[0.2em] active:opacity-50 transition-opacity">
           Back
         </button>
-        <span className="font-black text-[10px] uppercase tracking-[0.5em] text-zinc-600">Active Queue</span>
+        <div className="flex flex-col items-center">
+          <span className="font-black text-[10px] uppercase tracking-[0.5em] text-zinc-600 leading-none">Active Queue</span>
+          {showWakeUpPrompt && (
+            <span className="text-[7px] text-palette-gold font-black uppercase tracking-widest mt-1 animate-pulse">Connection Asleep</span>
+          )}
+        </div>
         <div className="w-12" />
       </div>
 
@@ -453,13 +493,24 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                   {option.name}
                 </h2>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="bg-palette-gold/10 border border-palette-gold/30 px-3 py-1 rounded-xl">
-                  <span className="text-palette-gold text-[10px] font-black uppercase tracking-[0.15em]">{result?.tracks?.length || 0} Tracks</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="bg-palette-gold/10 border border-palette-gold/30 px-3 py-1 rounded-xl">
+                    <span className="text-palette-gold text-[10px] font-black uppercase tracking-[0.15em]">{result?.tracks?.length || 0} Tracks</span>
+                  </div>
+                  <div className="bg-[#6D28D9]/10 border border-[#6D28D9]/30 px-3 py-1 rounded-xl">
+                    <span className="text-[#8B5CF6] text-[10px] font-black uppercase tracking-[0.15em]">{totalDurationStr}</span>
+                  </div>
                 </div>
-                <div className="bg-[#6D28D9]/10 border border-[#6D28D9]/30 px-3 py-1 rounded-xl">
-                  <span className="text-[#8B5CF6] text-[10px] font-black uppercase tracking-[0.15em]">{totalDurationStr}</span>
-                </div>
+
+                {showWakeUpPrompt && (
+                  <button 
+                    onClick={triggerWakeUp}
+                    className="bg-palette-gold/20 border border-palette-gold text-palette-gold px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest animate-pulse shadow-lg shadow-palette-gold/10"
+                  >
+                    Wake Up Spotify
+                  </button>
+                )}
               </div>
             </header>
 
@@ -531,9 +582,9 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
               </button>
               <button 
                 onClick={handlePushToDevice} 
-                className={`relative overflow-hidden w-full py-6 rounded-3xl font-garet font-black uppercase tracking-widest text-[13px] active:scale-95 transition-all border border-white/10 ${hasDevices ? 'bg-palette-teal text-white shadow-lg shadow-palette-teal/20' : 'bg-zinc-800 border-zinc-700 text-zinc-500'}`}
+                className={`relative overflow-hidden w-full py-6 rounded-3xl font-garet font-black uppercase tracking-widest text-[13px] active:scale-95 transition-all border border-white/10 ${hasDevices || spotifyPlayback.getDeviceId() ? 'bg-palette-teal text-white shadow-lg shadow-palette-teal/20' : 'bg-zinc-800 border-zinc-700 text-zinc-500'}`}
               >
-                 {hasDevices && <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />}
+                 {(hasDevices || spotifyPlayback.getDeviceId()) && <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />}
                  Push to Device
               </button>
               <button onClick={() => setShowPlayOptions(false)} className="w-full py-3 text-zinc-600 font-black uppercase tracking-widest text-[11px] mt-4">Cancel</button>

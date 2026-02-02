@@ -48,6 +48,8 @@ class SpotifyPlaybackService {
         });
 
         this.player.addListener('not_ready', ({ device_id }: { device_id: string }) => {
+          this.deviceId = null;
+          this.sdkReady = false;
           apiLogger.logError(`SDK: Device Went Offline (${device_id})`);
         });
 
@@ -81,7 +83,10 @@ class SpotifyPlaybackService {
 
     const devices = await SpotifyApi.getDevices();
     const active = devices.find(d => d.is_active);
-    const chosen = active || devices[0];
+    
+    // If no active device but we have a local SDK ID, use that as first fallback
+    const localId = this.deviceId;
+    const chosen = active || (localId ? { id: localId } : null) || devices[0];
 
     if (!chosen) throw new Error("Open Spotify on a device and try again.");
 
@@ -130,6 +135,10 @@ class SpotifyPlaybackService {
 
   getDeviceId() {
     return this.deviceId;
+  }
+
+  isReady() {
+    return this.sdkReady;
   }
 }
 
