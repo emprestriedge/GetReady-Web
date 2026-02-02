@@ -6,6 +6,7 @@ import { configStore } from '../services/configStore';
 import { Haptics } from '../services/haptics';
 import { PinkAsterisk } from './HomeView';
 import { apiLogger } from '../services/apiLogger';
+import { toastService } from '../services/toastService';
 
 interface PodcastManagerViewProps {
   rules: RuleSettings;
@@ -21,8 +22,6 @@ const PodcastManagerView: React.FC<PodcastManagerViewProps> = ({ onBack }) => {
   const [isConfirming, setIsConfirming] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<PodcastShowCandidate | null>(null);
   
-  const timeoutRef = useRef<number | null>(null);
-
   const handleUpdateSlot = (index: number, updates: Partial<RunOption>) => {
     configStore.updatePodcastSlot(index, updates);
     setOptions(configStore.getConfig().podcasts);
@@ -66,12 +65,12 @@ const PodcastManagerView: React.FC<PodcastManagerViewProps> = ({ onBack }) => {
       } else {
         setResolvingIdx(null);
         Haptics.error();
-        alert(`No matches found for "${slot.name}". Try adding more keywords.`);
+        toastService.show(`No matches found for "${slot.name}"`, "warning");
       }
     } catch (e: any) {
       setResolvingIdx(null);
       apiLogger.logError(`PodcastManager: Search failed: ${e.message}`);
-      alert("Search failed. Check your Spotify connection.");
+      toastService.show("Search failed. Check connection.", "error");
     }
   };
 
@@ -106,6 +105,7 @@ const PodcastManagerView: React.FC<PodcastManagerViewProps> = ({ onBack }) => {
       });
 
       Haptics.success();
+      toastService.show("Show linked!", "success");
       setShowPicker(false);
       setResolvingIdx(null);
       setCandidates([]);
@@ -113,7 +113,7 @@ const PodcastManagerView: React.FC<PodcastManagerViewProps> = ({ onBack }) => {
 
     } catch (err: any) {
       apiLogger.logError(`PodcastManager Confirm Error: ${err.message}`);
-      alert(err.message || "An error occurred while linking the show.");
+      toastService.show("Failed to link show", "error");
     } finally {
       setIsConfirming(false);
     }
@@ -185,12 +185,6 @@ const PodcastManagerView: React.FC<PodcastManagerViewProps> = ({ onBack }) => {
                         {resolvingIdx === i ? 'Searching...' : 'Find on Spotify'}
                      </span>
                    </button>
-                   {ContentIdStore.get(slot.idKey || '') && (
-                      <div className="flex items-center justify-center gap-2 px-1">
-                         <span className="w-1.5 h-1.5 rounded-full bg-palette-emerald shadow-[0_0_8px_rgba(25,162,142,0.6)]" />
-                         <span className="text-[8px] font-mono text-zinc-600 uppercase">Linked: {ContentIdStore.get(slot.idKey || '').slice(0, 10)}...</span>
-                      </div>
-                   )}
                 </div>
              </div>
           </div>
@@ -232,9 +226,6 @@ const PodcastManagerView: React.FC<PodcastManagerViewProps> = ({ onBack }) => {
                              <p className="text-[11px] text-zinc-500 font-medium truncate mt-0.5">{c.publisher}</p>
                           </div>
                        </div>
-                       <p className="text-[11px] text-zinc-600 font-garet line-clamp-2 leading-relaxed opacity-70">
-                          {c.description.replace(/<[^>]*>?/gm, '')}
-                       </p>
                     </button>
                  ))}
               </div>
@@ -255,9 +246,6 @@ const PodcastManagerView: React.FC<PodcastManagerViewProps> = ({ onBack }) => {
                          <span>Confirm Selection</span>
                       )}
                     </span>
-                    {selectedCandidate && !isConfirming && (
-                       <div className="absolute top-1 left-2 w-[85%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
-                    )}
                  </button>
                  <button onClick={handleClosePicker} disabled={isConfirming} className="w-full py-2 text-zinc-600 font-black uppercase tracking-widest text-[10px] active:opacity-50">Cancel</button>
               </footer>

@@ -10,6 +10,7 @@ import { SpotifySource } from '../types';
 import { ResourceResolver } from '../services/resourceResolver';
 import { SettingsMode } from './SettingsView';
 import { authStore } from '../services/authStore';
+import { toastService } from '../services/toastService';
 
 interface DeveloperToolsViewProps {
   onBack: () => void;
@@ -63,28 +64,13 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
       
       if (type === 'artist') {
         data = await SpotifyDataService.getArtistById(id);
-        meta = {
-          id,
-          name: data.name,
-          owner: 'Artist',
-          count: data.popularity || 0 
-        };
+        meta = { id, name: data.name, owner: 'Artist', count: data.popularity || 0 };
       } else if (type === 'album') {
         data = await SpotifyDataService.getAlbumById(id);
-        meta = {
-          id,
-          name: data.name,
-          owner: data.artists[0]?.name || 'Unknown Artist',
-          count: data.tracks?.total || 0
-        };
+        meta = { id, name: data.name, owner: data.artists[0]?.name || 'Artist', count: data.tracks?.total || 0 };
       } else {
         data = await SpotifyDataService.getPlaylistById(id);
-        meta = {
-          id,
-          name: data.name,
-          owner: data.owner?.display_name || 'Spotify',
-          count: data.tracks?.total || 0
-        };
+        meta = { id, name: data.name, owner: data.owner?.display_name || 'Spotify', count: data.tracks?.total || 0 };
       }
       setMetadata(prev => ({ ...prev, [key]: meta }));
     } catch (e) {
@@ -100,9 +86,11 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
     try {
       await ResourceResolver.resolveAll();
       setConfig(catalogStore.get());
+      toastService.show("Catalog sync complete", "success");
       Haptics.success();
     } catch (e: any) {
       apiLogger.logError(`Catalog refresh failed: ${e.message}`);
+      toastService.show("Sync failed", "error");
     } finally {
       setRefreshing(false);
     }
@@ -126,6 +114,7 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
     verifyId(showPasteId, cleanId);
     setShowPasteId(null);
     setIdInput("");
+    toastService.show("ID Linked", "success");
   };
 
   const handleResolveByName = async (key: string, label: string) => {
@@ -150,12 +139,13 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
         }
         setConfig(catalogStore.get());
         verifyId(key, id);
+        toastService.show("Match found!", "success");
         Haptics.success();
       } else {
-        alert(`No match found for "${label}".`);
+        toastService.show(`No match for "${label}"`, "warning");
       }
     } catch (e) {
-      alert("Search failed. Verify Spotify connection.");
+      toastService.show("Search failed", "error");
     } finally {
       setLoading(prev => ({ ...prev, [key]: false }));
     }
@@ -173,6 +163,7 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
     }
     setConfig(catalogStore.get());
     setMetadata(prev => ({ ...prev, [key]: null }));
+    toastService.show("Slot cleared", "info");
   };
 
   const openPicker = async (key: string) => {
@@ -184,7 +175,7 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
       const list = await ResourceResolver.fetchAllUserPlaylists();
       setUserPlaylists(list);
     } catch (e) {
-      alert("Failed to load user playlists.");
+      toastService.show("Library access failed", "error");
     } finally {
       setPickerLoading(false);
     }
@@ -214,11 +205,12 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
     setConfig(catalogStore.get());
     verifyId(showPickerFor, playlistId);
     setShowPickerFor(null);
+    toastService.show("Linked library item", "success");
   };
 
   const handleHardReset = () => {
     Haptics.impact();
-    if (confirm("Permanently clear ALL configuration, tokens, and history? This cannot be undone.")) {
+    if (confirm("Permanently clear ALL configuration, tokens, and history?")) {
         authStore.hardReset();
         configStore.resetConfig();
         localStorage.clear();
@@ -341,13 +333,7 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
             {RAP_SOURCE_PLAYLIST_NAMES.map(name => {
               const source = config.rapSources?.[name];
               return (
-                <ResourceRow 
-                  key={name} 
-                  slotKey={`rap_${name}`} 
-                  label={name} 
-                  type={source?.type || 'playlist'}
-                  id={source?.id || null} 
-                />
+                <ResourceRow key={name} slotKey={`rap_${name}`} label={name} type={source?.type || 'playlist'} id={source?.id || null} />
               );
             })}
           </div>
@@ -360,9 +346,6 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
             >
                 ⚠️ Force Global Reset
             </button>
-            <p className="text-center text-[9px] text-zinc-700 font-black uppercase tracking-widest mt-4 px-8 leading-relaxed">
-                Resetting will clear all tokens, history, and custom playlist IDs.
-            </p>
         </section>
       </div>
 
@@ -373,7 +356,6 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
                <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-4xl font-mango text-palette-teal leading-none">Library Picker</h3>
-                    <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mt-2">Target: {showPickerFor.replace('rap_', '')}</p>
                   </div>
                   <button onClick={() => setShowPickerFor(null)} className="text-zinc-500 active:text-white transition-colors">
                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -384,21 +366,16 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
                     type="text"
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
-                    placeholder="Search your library..."
+                    placeholder="Search library..."
                     autoFocus
                     className="w-full bg-black/40 border border-white/10 rounded-2xl px-10 py-3 text-sm text-[#D1F2EB] font-garet font-bold outline-none focus:border-palette-teal transition-all"
                   />
-                  <svg className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                </div>
              </header>
              <div className="flex-1 overflow-y-auto px-6 pb-6">
                 {pickerLoading ? (
                   <div className="h-full flex flex-col items-center justify-center py-20">
                     <div className="w-10 h-10 border-3 border-palette-pink border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : filteredPlaylists.length === 0 ? (
-                  <div className="py-20 text-center flex flex-col items-center gap-4 opacity-50">
-                    <p className="text-zinc-500 font-garet font-medium text-lg">No results found.</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
@@ -424,7 +401,6 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
            <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-md flex flex-col gap-6 shadow-2xl" onClick={e => e.stopPropagation()}>
               <header>
                  <h2 className="text-4xl font-mango text-palette-pink leading-none">Paste ID</h2>
-                 <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mt-2">Source: {showPasteId.replace('rap_', '')}</p>
               </header>
               <input 
                 type="text" 

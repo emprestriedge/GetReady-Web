@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RunOption, RuleSettings, RunResult, RunOptionType, SpotifyDevice, Track, PodcastShowCandidate } from '../types';
 import { RuleOverrideStore } from '../services/ruleOverrideStore';
@@ -40,40 +39,26 @@ const TrackRow: React.FC<{
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const touchStartX = useRef<number | null>(null);
-  const longPressTimer = useRef<number | null>(null);
   const lastTapTime = useRef<number>(0);
   const SWIPE_LIMIT = -100;
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     
-    // Logic: Long Press to toggle 'Saved' (Pink/Grey)
-    longPressTimer.current = window.setTimeout(() => {
-      onStatusToggle(track);
-      Haptics.impact();
-    }, 600);
-
-    // Double Tap detection for mobile
+    // Double Tap Detection for high-performance feel
     const now = Date.now();
     if (now - lastTapTime.current < 300) {
       onPlay(track, index);
       Haptics.impact();
+      lastTapTime.current = 0; 
+      return;
     }
     lastTapTime.current = now;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (touchStartX.current === null) return;
-    const currentX = e.touches[0].clientX;
-    const deltaX = currentX - touchStartX.current;
-    
-    if (Math.abs(deltaX) > 10) {
-      if (longPressTimer.current) {
-        clearTimeout(longPressTimer.current);
-        longPressTimer.current = null;
-      }
-    }
-
+    const deltaX = e.touches[0].clientX - touchStartX.current;
     if (deltaX < 0) {
       setIsSwiping(true);
       setSwipeX(deltaX);
@@ -81,83 +66,39 @@ const TrackRow: React.FC<{
   };
 
   const handleTouchEnd = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-
     if (swipeX < SWIPE_LIMIT) {
       Haptics.impact();
       onBlock(track);
     }
-    
     setSwipeX(0);
     setIsSwiping(false);
     touchStartX.current = null;
   };
 
-  const handleInteraction = () => {
-    onPlay(track, index);
-  };
-
-  const blockTextOpacity = Math.min(1, Math.abs(swipeX) / 80);
-  const blockBgOpacity = Math.min(0.8, Math.abs(swipeX) / 100);
-
   return (
     <div className="relative overflow-hidden bg-black first:rounded-t-[32px] last:rounded-b-[32px]">
-      <div 
-        className="absolute inset-0 flex items-center justify-end px-10 transition-colors pointer-events-none"
-        style={{ backgroundColor: `rgba(255, 0, 122, ${blockBgOpacity * 0.3})` }}
-      >
-        <span 
-          className="text-white font-black text-[12px] uppercase tracking-[0.4em]"
-          style={{ opacity: blockTextOpacity }}
-        >
-          Block
-        </span>
+      <div className="absolute inset-0 flex items-center justify-end px-10 transition-colors pointer-events-none" style={{ backgroundColor: `rgba(255, 0, 122, ${Math.min(0.8, Math.abs(swipeX) / 100) * 0.3})` }}>
+        <span className="text-white font-black text-[12px] uppercase tracking-[0.4em]" style={{ opacity: Math.min(1, Math.abs(swipeX) / 80) }}>Block</span>
       </div>
-
       <button 
-        onClick={handleInteraction}
         onDoubleClick={() => onPlay(track, index)}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={{ 
-          touchAction: 'pan-y',
-          transform: `translateX(${swipeX}px)`,
-          transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.23, 1, 0.32, 1)'
-        }}
-        className={`w-full flex items-center gap-4 p-5 transition-all group text-left select-none relative z-10 border-b border-[#6D28D9]/20 ${
-          isActive 
-            ? 'bg-palette-teal/15 border-palette-teal/40 shadow-[inset_0_0_40px_rgba(45,185,177,0.15)]' 
-            : 'bg-[#0a0a0a]/85 backdrop-blur-3xl hover:bg-white/5 active:bg-palette-teal/5'
-        }`}
+        style={{ touchAction: 'pan-y', transform: `translateX(${swipeX}px)`, transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.23, 1, 0.32, 1)' }}
+        className={`w-full flex items-center gap-4 p-5 transition-all group text-left select-none relative z-10 border-b border-[#6D28D9]/20 ${isActive ? 'bg-palette-teal/15 border-palette-teal/40 shadow-[inset_0_0_40px_rgba(45,185,177,0.15)]' : 'bg-[#0a0a0a]/85 backdrop-blur-3xl hover:bg-white/5 active:bg-palette-teal/5'}`}
       >
         <div className="relative shrink-0 flex items-center justify-center min-w-[24px]">
-          {isActive ? (
-            <div className="flex gap-0.5 items-end h-4 mb-0.5">
-               <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.6s_ease-in-out_infinite]" style={{ height: '100%' }} />
-               <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.8s_ease-in-out_infinite]" style={{ height: '60%' }} />
-               <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.7s_ease-in-out_infinite]" style={{ height: '85%' }} />
-            </div>
-          ) : (
-            <StatusAsterisk status={track.status === 'liked' || track.status === 'gem' ? 'liked' : 'none'} />
-          )}
+          <StatusAsterisk status={track.status === 'liked' || track.status === 'gem' ? 'liked' : 'none'} />
         </div>
-
         <div className={`w-12 h-12 rounded-2xl bg-zinc-900 overflow-hidden shrink-0 border relative pointer-events-none transition-all duration-500 ${isActive ? 'border-palette-teal/60 scale-105 shadow-[0_0_20px_rgba(45,185,177,0.4)]' : 'border-white/10'}`}>
           <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
           {isActive && <div className="absolute inset-0 bg-palette-teal/15 animate-pulse" />}
         </div>
-
         <div className="flex-1 min-w-0 pointer-events-none">
-          <h4 className={`text-[15px] font-gurmukhi leading-tight transition-colors duration-300 truncate ${isActive ? 'text-palette-teal' : 'text-[#D1F2EB] group-active:text-palette-teal'}`}>
-            {track.title}
-          </h4>
+          <h4 className={`text-[15px] font-gurmukhi leading-tight transition-colors duration-300 truncate ${isActive ? 'text-palette-teal' : 'text-[#D1F2EB] group-active:text-palette-teal'}`}>{track.title}</h4>
           <p className="text-[11px] text-zinc-500 font-medium truncate mt-1 font-garet">{track.artist}</p>
         </div>
-        
         <div className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${isActive ? 'bg-palette-teal scale-125 shadow-[0_0_10px_rgba(45,185,177,1)]' : 'bg-zinc-800'}`} />
       </button>
     </div>
@@ -172,48 +113,34 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   const [showDevicePicker, setShowDevicePicker] = useState(false);
   const [isQueuePlaying, setIsQueuePlaying] = useState(isQueueMode || false);
   const [currentPlayingUri, setCurrentPlayingUri] = useState<string | null>(null);
-  const [showWakeUpPrompt, setShowWakeUpPrompt] = useState<string | null>(null);
-  
   const [result, setResult] = useState<RunResult | null>(initialResult || null);
   const [error, setError] = useState<string | null>(null);
   const [playlistName, setPlaylistName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-
   const [hasDevices, setHasDevices] = useState(false);
-  
   const generationRequestId = useRef(0);
   const engine = useMemo(() => new SpotifyPlaybackEngine(), []);
-  
-  const override = RuleOverrideStore.getForOption(option.id);
-  const effectiveRules = getEffectiveRules(rules, override);
+  const effectiveRules = getEffectiveRules(rules, RuleOverrideStore.getForOption(option.id));
 
   useEffect(() => {
     if (initialResult) handleHistoryBackfill();
     if (!initialResult && genStatus === 'IDLE') startRun();
     checkDeviceStatus();
-
     const pollPlayback = async () => {
       try {
         const state = await SpotifyApi.request('/me/player');
         if (state?.item?.uri) {
           setCurrentPlayingUri(state.item.uri);
-          if (state.is_playing) setShowWakeUpPrompt(null);
         }
       } catch (e) {}
     };
-
     const interval = setInterval(pollPlayback, 3000);
     pollPlayback();
     return () => clearInterval(interval);
   }, [option, rules, initialResult]);
 
   const checkDeviceStatus = async () => {
-    try {
-      const devices = await SpotifyApi.getDevices();
-      setHasDevices(devices.length > 0);
-    } catch (e) {
-      setHasDevices(false);
-    }
+    try { const devices = await SpotifyApi.getDevices(); setHasDevices(devices.length > 0); } catch (e) { setHasDevices(false); }
   };
 
   const handleHistoryBackfill = async () => {
@@ -224,14 +151,11 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         const fullResult = await engine.generateRunResult(option, effectiveRules);
         if (fullResult.tracks) {
           const backfillNeeded = (initialResult.tracks.length) - validTracks.length;
-          const newTracks = fullResult.tracks.filter(t => !validTracks.some(vt => vt.uri === t.uri)).slice(0, backfillNeeded);
-          const updated = { ...initialResult, tracks: [...validTracks, ...newTracks] };
+          const updated = { ...initialResult, tracks: [...validTracks, ...fullResult.tracks.filter(t => !validTracks.some(vt => vt.uri === t.uri)).slice(0, backfillNeeded)] };
           setResult(updated);
           onResultUpdate?.(updated);
         }
-      } catch (e) {
-        setResult({ ...initialResult, tracks: validTracks });
-      }
+      } catch (e) { setResult({ ...initialResult, tracks: validTracks }); }
     }
   };
 
@@ -241,18 +165,12 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     setGenStatus('RUNNING');
     setResult(null); 
     setIsQueuePlaying(false);
-    
     const requestId = ++generationRequestId.current;
-
     try {
       await new Promise(r => setTimeout(r, 1200));
       const runResult = await engine.generateRunResult(option, effectiveRules);
       if (requestId !== generationRequestId.current) return;
-
-      if (runResult.tracks) {
-        runResult.tracks = runResult.tracks.map(t => ({ ...t, status: 'none' }));
-      }
-
+      if (runResult.tracks) runResult.tracks = runResult.tracks.map(t => ({ ...t, status: 'none' }));
       setResult(runResult);
       setGenStatus('DONE');
       onResultUpdate?.(runResult);
@@ -268,99 +186,66 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   const handlePlayTrack = async (track: Track, index: number) => {
     if (!result?.tracks) return;
     Haptics.light();
-    setIsQueuePlaying(true); 
-    setCurrentPlayingUri(track.uri);
-    onPlayTriggered?.();
     
     try {
-      const devices = await SpotifyApi.getDevices();
-      const active = devices.find(d => d.is_active);
-      const allUris = result.tracks.map(t => t.uri);
-      const localId = spotifyPlayback.getDeviceId();
-
-      if (!active) {
-        // Silent Wake-up Strategy
-        if (localId) {
-          apiLogger.logClick(`Engine: Attempting Silent Wake-up via local device ${localId}`);
-          try {
-            await spotifyPlayback.transferPlayback(localId, true);
-            await new Promise(r => setTimeout(r, 400)); // Small buffer for transfer
-            await spotifyPlayback.setShuffle(false, localId);
-            await spotifyPlayback.playUrisOnDevice(localId, allUris, index);
-            Haptics.success();
-
-            // Verification phase: Wait 2s to see if playback actually starts
-            setTimeout(async () => {
-              const checkState = await SpotifyApi.request('/me/player');
-              if (!checkState || !checkState.is_playing) {
-                setShowWakeUpPrompt(track.uri);
-                Haptics.error();
-              }
-            }, 2000);
-            return;
-          } catch (e) {
-             // Continue to fallback
-          }
-        }
-
-        // Deep Link Fallback if no local player or transfer failed
-        if (devices.length === 0) {
-           setShowWakeUpPrompt(track.uri);
-           return;
-        }
-      }
-
-      if (active) {
-        await spotifyPlayback.setShuffle(false, active.id);
-        await spotifyPlayback.playUrisOnDevice(active.id, allUris, index);
-        Haptics.success();
-      } else {
-        setShowDevicePicker(true);
-      }
+      const currentUris = result.tracks.map(t => t.uri);
+      await SpotifyPlaybackEngine.playTrack(track, currentUris, index);
+      setIsQueuePlaying(true); 
+      setCurrentPlayingUri(track.uri);
+      onPlayTriggered?.();
     } catch (e: any) {
-      setIsQueuePlaying(false);
-      toastService.show(e.message || "Playback failed", "error");
+      if (e.message === "NO_ACTIVE_DEVICE") {
+        setShowDevicePicker(true);
+      } else {
+        toastService.show(e.message || "Playback failed", "error");
+      }
     }
   };
 
-  const triggerWakeUp = () => {
-    if (!showWakeUpPrompt) return;
+  /**
+   * handleDeepLink - Safe implementation for opening Spotify deep links
+   * Prevents "String did not match the expected pattern" crash by ensuring sanitized URIs.
+   */
+  const handleDeepLink = (track: Track) => {
+    if (!track || (!track.uri && !track.id)) {
+      toastService.show("Invalid track record", "error");
+      return;
+    }
+    try {
+      // Force valid Spotify pattern: spotify:track:ID
+      const safeUri = track.uri && track.uri.startsWith('spotify:track:') 
+        ? track.uri 
+        : `spotify:track:${track.id || track.uri.split(':').pop()}`;
+      
+      toastService.show("Launching Spotify...", "info");
+      window.location.assign(safeUri);
+    } catch (e) {
+      apiLogger.logError("Deep link failed");
+    }
+  };
+
+  const handleOpenInSpotify = () => {
+    if (!result?.tracks || result.tracks.length === 0) return;
     Haptics.impact();
-    const trackId = showWakeUpPrompt.split(':').pop();
-    toastService.show("Waking up Spotify... Tap the Back arrow to return.", "info");
-    window.location.href = `spotify:track:${trackId}`;
-    setShowWakeUpPrompt(null);
+    handleDeepLink(result.tracks[0]);
+    setShowPlayOptions(false);
   };
 
   const handleToggleStatus = async (track: Track) => {
     if (!result || !result.tracks) return;
     const currentTrack = result.tracks.find(t => t.uri === track.uri);
     if (!currentTrack) return;
-    
     const nextStatus: Track['status'] = currentTrack.status === 'liked' ? 'none' : 'liked';
-
     setResult(prev => {
       if (!prev || !prev.tracks) return prev;
-      const updatedTracks = prev.tracks.map(t => {
-        if (t.uri === track.uri) return { ...t, status: nextStatus };
-        return t;
-      });
-      const updated = { ...prev, tracks: updatedTracks };
+      const updated = { ...prev, tracks: prev.tracks.map(t => t.uri === track.uri ? { ...t, status: nextStatus } : t) };
       onResultUpdate?.(updated);
       return updated;
     });
-
     try {
-      if (nextStatus === 'liked') {
-        await SpotifyDataService.addTrackToGems(track.uri);
-        toastService.show("Added to GetReady Gems", "success");
-      } else {
-        await SpotifyDataService.removeTrackFromGems(track.uri);
-        toastService.show("Removed from Gems", "info");
-      }
-    } catch (e: any) {
-      toastService.show("Catalog sync failed", "error");
-    }
+      if (nextStatus === 'liked') { await SpotifyDataService.addTrackToGems(track.uri); toastService.show("Added to GetReady Gems", "success"); }
+      else { await SpotifyDataService.removeTrackFromGems(track.uri); toastService.show("Removed from Gems", "info"); }
+    } catch (e: any) { toastService.show("Catalog sync failed", "error"); }
   };
 
   const handleBlockTrack = (track: Track) => {
@@ -371,7 +256,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       if (updated) onResultUpdate?.(updated);
       return updated;
     });
-    toastService.show(`Removed "${track.title}" from mix`, "info");
   };
 
   const handleConfirmSave = async () => {
@@ -382,79 +266,29 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       if (showSaveConfirmDialog === 'spotify') {
         const user = await SpotifyApi.getMe();
         const playlist = await SpotifyDataService.createPlaylist(user.id, playlistName, result.sourceSummary || "");
-        if (result.tracks) {
-          await SpotifyDataService.replacePlaylistTracks(playlist.id, result.tracks.map(t => t.uri));
-        }
+        if (result.tracks) await SpotifyDataService.replacePlaylistTracks(playlist.id, result.tracks.map(t => t.uri));
         toastService.show("Saved to Spotify", "success");
       } else {
         onComplete({ ...result, playlistName });
         toastService.show("Saved to Logs", "success");
       }
       setShowSaveConfirmDialog(null);
-    } catch (e: any) {
-      toastService.show(e.message || "Save failed", "error");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handlePlayOnSpotify = () => {
-    if (!result) return;
-    Haptics.medium();
-    const uris = result.runType === RunOptionType.MUSIC ? result.tracks?.map(t => t.uri) || [] : [result.episode?.uri].filter(Boolean) as string[];
-    if (uris.length > 0) {
-       window.location.href = uris[0];
-       setIsQueuePlaying(true);
-       onPlayTriggered?.();
-    }
-    setShowPlayOptions(false);
-  };
-
-  const handlePushToDevice = () => {
-    Haptics.medium();
-    setShowPlayOptions(false);
-    setShowDevicePicker(true);
-  };
-
-  const handleDeviceSelected = async (deviceId: string) => {
-    if (!result?.tracks) return;
-    Haptics.medium();
-    setShowDevicePicker(false);
-    setIsQueuePlaying(true);
-    onPlayTriggered?.();
-    
-    try {
-      const activeId = await spotifyPlayback.ensureActiveDevice(deviceId);
-      const allUris = result.tracks.map(t => t.uri);
-      await spotifyPlayback.setShuffle(false, activeId);
-      await spotifyPlayback.playUrisOnDevice(activeId, allUris, 0);
-      Haptics.success();
-    } catch (e: any) {
-      Haptics.error();
-      setIsQueuePlaying(false);
-      toastService.show(e.message || "Push failed", "error");
-    }
+    } catch (e: any) { toastService.show(e.message || "Save failed", "error"); }
+    finally { setIsSaving(false); }
   };
 
   const totalDurationStr = useMemo(() => {
     if (!result?.tracks) return null;
-    const totalMs = result.tracks.reduce((acc, t) => acc + (t.durationMs || 0), 0);
-    const mins = Math.floor(totalMs / 60000);
-    const hrs = Math.floor(mins / 60);
-    return hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins} mins`;
+    const mins = Math.floor(result.tracks.reduce((acc, t) => acc + (t.durationMs || 0), 0) / 60000);
+    return mins > 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins} mins`;
   }, [result]);
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-500 overflow-x-hidden w-full max-w-[100vw] text-[#A9E8DF]">
       <div className="px-6 pb-6 flex items-center justify-between border-b border-white/5 bg-black/30 shrink-0 pt-16">
-        <button onClick={() => { Haptics.light(); onClose(); }} className="text-palette-pink text-[14px] font-black uppercase tracking-[0.2em] active:opacity-50 transition-opacity">
-          Back
-        </button>
+        <button onClick={() => { Haptics.light(); onClose(); }} className="text-palette-pink text-[14px] font-black uppercase tracking-[0.2em] active:opacity-50 transition-opacity">Back</button>
         <div className="flex flex-col items-center">
           <span className="font-black text-[10px] uppercase tracking-[0.5em] text-zinc-600 leading-none">Active Queue</span>
-          {showWakeUpPrompt && (
-            <span className="text-[7px] text-palette-gold font-black uppercase tracking-widest mt-1 animate-pulse">Connection Asleep</span>
-          )}
         </div>
         <div className="w-12" />
       </div>
@@ -476,56 +310,26 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         ) : (
           <div className="flex flex-col gap-6">
              <header className="flex flex-col gap-1 px-4 stagger-entry stagger-1">
-              <style>{`
-                @keyframes force-marquee {
-                  0% { transform: translateX(100%); }
-                  100% { transform: translateX(-100%); }
-                }
-                .force-marquee-text {
-                  display: inline-block;
-                  white-space: nowrap;
-                  animation: force-marquee 15s linear infinite;
-                  will-change: transform;
-                }
-              `}</style>
               <div className="w-full overflow-hidden whitespace-nowrap relative py-2 mb-2">
-                <h2 className="leading-none font-mango header-ombre tracking-tighter drop-shadow-2xl text-[44px] force-marquee-text">
-                  {option.name}
-                </h2>
+                <h2 className="leading-none font-mango header-ombre tracking-tighter drop-shadow-2xl text-[44px] animate-[marquee_15s_linear_infinite]">{option.name}</h2>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="bg-palette-gold/10 border border-palette-gold/30 px-3 py-1 rounded-xl">
-                    <span className="text-palette-gold text-[10px] font-black uppercase tracking-[0.15em]">{result?.tracks?.length || 0} Tracks</span>
-                  </div>
-                  <div className="bg-[#6D28D9]/10 border border-[#6D28D9]/30 px-3 py-1 rounded-xl">
-                    <span className="text-[#8B5CF6] text-[10px] font-black uppercase tracking-[0.15em]">{totalDurationStr}</span>
-                  </div>
+                  <div className="bg-palette-gold/10 border border-palette-gold/30 px-3 py-1 rounded-xl"><span className="text-palette-gold text-[10px] font-black uppercase tracking-[0.15em]">{result?.tracks?.length || 0} Tracks</span></div>
+                  <div className="bg-[#6D28D9]/10 border border-[#6D28D9]/30 px-3 py-1 rounded-xl"><span className="text-[#8B5CF6] text-[10px] font-black uppercase tracking-[0.15em]">{totalDurationStr}</span></div>
                 </div>
-
-                {showWakeUpPrompt && (
-                  <button 
-                    onClick={triggerWakeUp}
-                    className="bg-palette-gold/20 border border-palette-gold text-palette-gold px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest animate-pulse shadow-lg shadow-palette-gold/10"
-                  >
-                    Wake Up Spotify
-                  </button>
-                )}
+                <button 
+                  onClick={() => { if (result?.tracks) handlePlayTrack(result.tracks[0], 0); }}
+                  className="bg-palette-teal/20 border border-palette-teal text-palette-teal px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-90 transition-all shadow-lg shadow-palette-teal/10"
+                >
+                  Play Mix
+                </button>
               </div>
             </header>
-
-            <div className="bg-[#0a0a0a]/60 backdrop-blur-3xl rounded-[32px] overflow-hidden border border-white/10 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.9),0_0_40px_rgba(109,40,217,0.1),0_0_40px_rgba(45,185,177,0.05)] stagger-entry stagger-2">
+            <div className="bg-[#0a0a0a]/60 backdrop-blur-3xl rounded-[32px] overflow-hidden border border-white/10 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.9)] stagger-entry stagger-2">
               <div className="divide-y divide-[#6D28D9]/20">
                 {result?.tracks?.map((track, i) => (
-                  <TrackRow 
-                    key={track.uri + i} 
-                    track={track} 
-                    isActive={currentPlayingUri === track.uri}
-                    index={i}
-                    onPlay={handlePlayTrack} 
-                    onStatusToggle={handleToggleStatus} 
-                    onBlock={handleBlockTrack} 
-                  />
+                  <TrackRow key={track.uri + i} track={track} isActive={currentPlayingUri === track.uri} index={i} onPlay={handlePlayTrack} onStatusToggle={handleToggleStatus} onBlock={handleBlockTrack} />
                 ))}
               </div>
             </div>
@@ -534,126 +338,39 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       </div>
 
       {genStatus === 'DONE' && !isQueuePlaying && (
-        <div 
-          className="fixed bottom-[56px] left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-[60px] border-t border-white/10 p-6 z-[110] shadow-[0_-10px_40px_rgba(0,0,0,0.8)]"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
-        >
+        <div className="fixed bottom-[56px] left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-[60px] border-t border-white/10 p-6 z-[110]" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
            <div className="flex flex-col gap-4 max-w-lg mx-auto w-full">
               <div className="flex gap-4">
-                 <button 
-                   onClick={() => { Haptics.medium(); setShowPlayOptions(true); }}
-                   className="relative overflow-hidden flex-1 bg-gradient-to-br from-[#1DB954] to-[#1ed760] text-white font-black py-4 rounded-[24px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.25em] text-[14px] shadow-xl shadow-[#1DB954]/30 border border-white/20 flex items-center justify-center gap-3 group"
-                 >
+                 <button onClick={() => { Haptics.medium(); setShowPlayOptions(true); }} className="relative overflow-hidden flex-1 bg-gradient-to-br from-[#1DB954] to-[#1ed760] text-white font-black py-4 rounded-[24px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.25em] text-[14px] shadow-xl border border-white/20 flex items-center justify-center gap-3">
                     <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
-                    <svg className="w-5 h-5 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                    <span className="relative z-10">Play</span>
+                    <svg className="w-5 h-5 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span className="relative z-10">Play</span>
                  </button>
-                 
-                 <button 
-                   onClick={() => { Haptics.medium(); setShowSaveOptions(true); }}
-                   className="relative overflow-hidden flex-1 bg-gradient-to-br from-[#2DB9B1] to-[#40D9D0] text-white font-black py-4 rounded-[24px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.25em] text-[14px] shadow-xl shadow-palette-teal/30 border border-white/20 flex items-center justify-center gap-3 group"
-                 >
+                 <button onClick={() => { Haptics.medium(); setShowSaveOptions(true); }} className="relative overflow-hidden flex-1 bg-gradient-to-br from-[#2DB9B1] to-[#40D9D0] text-white font-black py-4 rounded-[24px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.25em] text-[14px] shadow-xl border border-white/20 flex items-center justify-center gap-3">
                     <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
-                    <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
-                    <span className="relative z-10">Save</span>
+                    <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg><span className="relative z-10">Save</span>
                  </button>
               </div>
-
-              {option.type === RunOptionType.MUSIC && (
-                <button 
-                  onClick={startRun}
-                  className="relative overflow-hidden w-full bg-gradient-to-br from-[#FF007A] to-[#FF4D9F] text-white font-black py-5 rounded-[24px] active:scale-[0.96] transition-all font-garet uppercase tracking-[0.25em] text-[13px] flex items-center justify-center gap-4 shadow-2xl shadow-palette-pink/30 border border-white/20"
-                >
-                   <div className="absolute top-1.5 left-3 w-[92%] h-[40%] bg-gradient-to-b from-white/30 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
-                   <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                   <span className="relative z-10">Regenerate Mix</span>
-                </button>
-              )}
            </div>
         </div>
       )}
 
       {showPlayOptions && (
-        <div className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in duration-400" onClick={() => setShowPlayOptions(false)}>
-           <div className="bg-zinc-900 border border-white/10 rounded-[44px] p-8 w-full max-sm:px-6 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
-              <button onClick={handlePlayOnSpotify} className="relative overflow-hidden w-full bg-[#1DB954] text-white font-black py-6 rounded-3xl font-garet uppercase tracking-widest text-[13px] active:scale-95 transition-all">
-                 <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
-                 Play on Spotify
-              </button>
+        <div className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in" onClick={() => setShowPlayOptions(false)}>
+           <div className="bg-zinc-900 border border-white/10 rounded-[44px] p-8 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in shadow-2xl" onClick={e => e.stopPropagation()}>
+              <button onClick={() => { if (result?.tracks) handlePlayTrack(result.tracks[0], 0); setShowPlayOptions(false); }} className="relative overflow-hidden w-full bg-[#1DB954] text-white font-black py-6 rounded-3xl font-garet uppercase tracking-widest text-[13px] active:scale-95 transition-all">Play on Device</button>
+              <button onClick={() => { setShowPlayOptions(false); setShowDevicePicker(true); }} className={`relative overflow-hidden w-full py-6 rounded-3xl font-garet font-black uppercase tracking-widest text-[13px] active:scale-95 transition-all border border-white/10 ${hasDevices ? 'bg-palette-teal text-white' : 'bg-zinc-800 text-zinc-500'}`}>Push to Device</button>
               <button 
-                onClick={handlePushToDevice} 
-                className={`relative overflow-hidden w-full py-6 rounded-3xl font-garet font-black uppercase tracking-widest text-[13px] active:scale-95 transition-all border border-white/10 ${hasDevices || spotifyPlayback.getDeviceId() ? 'bg-palette-teal text-white shadow-lg shadow-palette-teal/20' : 'bg-zinc-800 border-zinc-700 text-zinc-500'}`}
+                onClick={handleOpenInSpotify}
+                className="relative overflow-hidden w-full bg-palette-gold/20 text-palette-gold font-black py-6 rounded-3xl font-garet uppercase tracking-widest text-[13px] active:scale-95 transition-all border border-palette-gold/30 shadow-lg shadow-palette-gold/5"
               >
-                 {(hasDevices || spotifyPlayback.getDeviceId()) && <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />}
-                 Push to Device
+                Open in Spotify
               </button>
               <button onClick={() => setShowPlayOptions(false)} className="w-full py-3 text-zinc-600 font-black uppercase tracking-widest text-[11px] mt-4">Cancel</button>
            </div>
         </div>
       )}
 
-      {showSaveOptions && (
-        <div className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in duration-400" onClick={() => setShowSaveOptions(false)}>
-           <div className="bg-zinc-900 border border-white/10 rounded-[44px] p-8 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
-              <button 
-                onClick={() => {
-                  setPlaylistName(result?.playlistName || "");
-                  setShowSaveConfirmDialog('logs');
-                  setShowSaveOptions(false);
-                }} 
-                className="relative overflow-hidden w-full bg-palette-teal text-white font-black py-6 rounded-3xl font-garet uppercase tracking-widest text-[13px] active:scale-95 transition-all shadow-lg shadow-palette-teal/10"
-              >
-                 <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
-                 Save to Internal Logs
-              </button>
-              <button 
-                onClick={() => {
-                  setPlaylistName(result?.playlistName || "");
-                  setShowSaveConfirmDialog('spotify');
-                  setShowSaveOptions(false);
-                }} 
-                className="relative overflow-hidden w-full bg-[#1DB954] text-white font-black py-6 rounded-3xl font-garet uppercase tracking-widest text-[13px] active:scale-95 transition-all shadow-lg shadow-[#1DB954]/10"
-              >
-                 <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
-                 Save to Spotify Catalog
-              </button>
-              <button onClick={() => setShowSaveOptions(false)} className="w-full py-3 text-zinc-600 font-black uppercase tracking-widest text-[11px] mt-4">Cancel</button>
-           </div>
-        </div>
-      )}
-
-      {showSaveConfirmDialog && (
-        <div className="fixed inset-0 z-[250] bg-black/95 backdrop-blur-3xl flex items-center justify-center p-8 animate-in fade-in duration-400">
-           <div className="bg-zinc-900 border border-white/10 rounded-[44px] p-10 w-full max-w-md flex flex-col gap-8 shadow-2xl" onClick={e => e.stopPropagation()}>
-              <header>
-                 <h2 className="text-4xl font-mango text-palette-teal leading-none">Sync Options</h2>
-                 <p className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] mt-3">Target: {showSaveConfirmDialog === 'logs' ? 'Internal Build Log' : 'Spotify Catalog'}</p>
-              </header>
-              <div className="flex flex-col gap-3">
-                 <label className="text-[11px] font-black text-zinc-600 uppercase tracking-widest px-1">Deployment Name</label>
-                 <input 
-                   type="text" 
-                   value={playlistName}
-                   onChange={e => setPlaylistName(e.target.value)}
-                   className="bg-black/40 border border-white/10 rounded-2xl px-6 py-5 text-[#D1F2EB] font-garet font-bold outline-none focus:border-palette-pink transition-all w-full"
-                 />
-              </div>
-              <div className="flex flex-col gap-4">
-                 <button 
-                   onClick={handleConfirmSave} 
-                   disabled={isSaving || !playlistName} 
-                   className={`relative overflow-hidden w-full text-white font-black py-6 rounded-3xl font-garet uppercase tracking-widest text-[13px] active:scale-95 transition-all ${showSaveConfirmDialog === 'spotify' ? 'bg-[#1DB954]' : 'bg-palette-teal'}`}
-                 >
-                    <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[1px] pointer-events-none" />
-                    {isSaving ? 'Establishing Link...' : 'Confirm Synchronization'}
-                 </button>
-                 <button onClick={() => setShowSaveConfirmDialog(null)} className="w-full py-2 text-zinc-600 font-black uppercase tracking-widest text-[11px]">Discard</button>
-              </div>
-           </div>
-        </div>
-      )}
-
-      {showDevicePicker && <DevicePickerModal onSelect={handleDeviceSelected} onClose={() => setShowDevicePicker(false)} />}
+      {showDevicePicker && <DevicePickerModal onSelect={async (deviceId) => { setShowDevicePicker(false); if (result?.tracks) { await spotifyPlayback.ensureActiveDevice(deviceId); await SpotifyPlaybackEngine.playTrack(result.tracks[0], result.tracks.map(t => t.uri), 0); } }} onClose={() => setShowDevicePicker(false)} />}
     </div>
   );
 };

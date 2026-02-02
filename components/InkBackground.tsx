@@ -22,11 +22,13 @@ export default function InkBackground({ children }: { children?: React.ReactNode
 
   return (
     <div style={{ 
-      height: "100dvh", 
+      minHeight: "100dvh", 
       width: "100%", 
       position: "relative", 
       backgroundColor: "#000", 
-      overflow: "hidden"
+      overflow: "hidden",
+      display: "flex",
+      flexDirection: "column"
     }}>
       {/* Visual background layer matching your pink/black ink image */}
       <div style={gradientStyle} />
@@ -46,7 +48,7 @@ export default function InkBackground({ children }: { children?: React.ReactNode
       <div style={{ 
         position: "relative", 
         zIndex: 10, 
-        height: "100%", 
+        flex: 1, 
         width: "100%",
         display: "flex",
         flexDirection: "column",

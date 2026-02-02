@@ -6,6 +6,7 @@ import { Haptics } from '../services/haptics';
 import { spotifyPlayback } from '../services/spotifyPlaybackService';
 import { SpotifyDataService } from '../services/spotifyDataService';
 import { SpotifyApi } from '../services/spotifyApi';
+import { toastService } from '../services/toastService';
 import DevicePickerModal from './DevicePickerModal';
 
 interface HistoryViewProps {
@@ -33,8 +34,6 @@ const VaultRecordRow: React.FC<{
     if (touchStartX.current === null) return;
     const currentX = e.touches[0].clientX;
     const deltaX = currentX - touchStartX.current;
-    
-    // Only allow left swiping
     if (deltaX < 0) {
       setIsSwiping(true);
       setSwipeX(deltaX);
@@ -46,7 +45,6 @@ const VaultRecordRow: React.FC<{
       Haptics.impact();
       onDelete(record.id);
     }
-    
     setSwipeX(0);
     setIsSwiping(false);
     touchStartX.current = null;
@@ -56,7 +54,6 @@ const VaultRecordRow: React.FC<{
 
   return (
     <div className="relative overflow-hidden rounded-[32px] mb-4">
-      {/* Delete Action Background */}
       <div 
         className="absolute inset-0 bg-red-600 flex items-center justify-end px-10 transition-colors pointer-events-none"
         style={{ opacity: deleteOpacity }}
@@ -143,7 +140,8 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
       const list: RunRecord[] = JSON.parse(saved);
       const filtered = list.filter(r => r.id !== id);
       localStorage.setItem('spotify_buddy_history', JSON.stringify(filtered));
-      window.location.reload();
+      toastService.show("Record deleted", "info");
+      setTimeout(() => window.location.reload(), 500);
     }
   };
 
@@ -166,10 +164,11 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
         const activeDeviceId = await spotifyPlayback.ensureActiveDevice(deviceId);
         await spotifyPlayback.playUrisOnDevice(activeDeviceId, uris);
         Haptics.success();
+        toastService.show("Playback started", "success");
       }
     } catch (e: any) {
       Haptics.error();
-      alert(e.message || "Playback failed");
+      toastService.show(e.message || "Playback failed", "error");
     }
   };
 
@@ -194,9 +193,10 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
         await SpotifyDataService.replacePlaylistTracks(playlist.id, record.result.tracks.map(t => t.uri));
       }
       Haptics.success();
+      toastService.show("Playlist synced!", "success");
       setShowSpotifyPrompt(null);
     } catch (e: any) {
-      alert(e.message || "Failed to save playlist");
+      toastService.show(e.message || "Sync failed", "error");
     } finally {
       setSaving(false);
     }

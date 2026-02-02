@@ -10,6 +10,7 @@ import RapSourcesView from './RapSourcesView';
 import { SpotifyAuth } from '../services/spotifyAuth';
 import { Haptics } from '../services/haptics';
 import { configStore } from '../services/configStore';
+import { toastService } from '../services/toastService';
 
 interface SettingsViewProps {
   config: AppConfig;
@@ -47,7 +48,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
 
   const handleConnect = async () => {
     if (!config.spotifyClientId) {
-      alert("Please enter a Spotify Client ID first.");
+      toastService.show("Enter a Client ID first", "warning");
       return;
     }
     Haptics.impact();
@@ -57,13 +58,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
     } catch (e: any) {
       setAuthStatus('error');
       Haptics.error();
-      alert(e.message);
+      toastService.show(e.message, "error");
     }
   };
 
   const handleDisconnect = () => {
     Haptics.impact();
     if (confirm("Disconnect Spotify and clear authorization?")) {
+      SpotifyAuth.hardReset();
       SpotifyAuth.logout();
     }
   };
@@ -114,7 +116,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
                     onClick={() => {
                       navigator.clipboard.writeText(currentRedirectUri);
                       Haptics.light();
-                      alert("Copied!");
+                      toastService.show("Copied to clipboard", "success");
                     }}
                     className="shrink-0 text-[9px] font-black text-white/40 uppercase tracking-widest active:text-white"
                   >

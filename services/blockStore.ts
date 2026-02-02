@@ -1,3 +1,4 @@
+
 import { BlockedTrack, Track, SpotifyTrack } from '../types';
 
 const STORAGE_KEY = 'blockedTracks';
@@ -15,15 +16,16 @@ export const BlockStore = {
 
   addBlocked: (track: SpotifyTrack | Track): void => {
     const blocked = BlockStore.getBlocked();
-    const id = ('id' in track) ? track.id : track.uri.split(':').pop() || '';
+    // Simplified ID extraction since both types in the union (SpotifyTrack and Track) have 'id' and 'uri'
+    const id = track.id || track.uri.split(':').pop() || '';
     
     if (blocked.some(t => t.id === id)) return;
 
     const newBlocked: BlockedTrack = {
       id,
-      name: ('name' in track) ? track.name : track.title,
-      artist: ('artists' in track) ? track.artists[0].name : track.artist,
-      album: ('album' in track) ? (typeof track.album === 'string' ? track.album : track.album.name) : track.album,
+      name: ('name' in track) ? track.name : (track as Track).title,
+      artist: ('artists' in track) ? track.artists[0].name : (track as Track).artist,
+      album: ('album' in track) ? (typeof track.album === 'string' ? track.album : (track.album as any)?.name) : (track as Track).album,
       addedAt: new Date().toISOString()
     };
 

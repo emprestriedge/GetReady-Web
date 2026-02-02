@@ -1,3 +1,4 @@
+
 import { SpotifyTokensV1 } from './authStore';
 import { apiLogger } from './apiLogger';
 import { authStore } from './authStore';
@@ -227,5 +228,7 @@ export const SpotifyAuth = {
   },
 
   setReady: (val: boolean) => { authReady = val; },
-  logout: () => { authStore.clearAuth(); window.location.reload(); }
+  logout: () => { authStore.clearAuth(); window.location.reload(); },
+  // FIXED: Added hardReset method to SpotifyAuth to match components usage
+  hardReset: () => { authStore.hardReset(); }
 };

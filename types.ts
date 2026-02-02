@@ -53,6 +53,7 @@ export interface RunRecord {
 }
 
 export interface Track {
+  id: string;
   uri: string;
   title: string;
   artist: string;

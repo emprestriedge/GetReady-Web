@@ -7,6 +7,7 @@ import { apiLogger } from '../services/apiLogger';
 import { SpotifyDataService } from '../services/spotifyDataService';
 import { SpotifySourceType, AppConfig } from '../types';
 import { configStore } from '../services/configStore';
+import { toastService } from '../services/toastService';
 
 interface RapSourcesViewProps {
   onBack: () => void;
@@ -43,10 +44,11 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
     try {
       await ResourceResolver.resolveAll();
       Haptics.success();
+      toastService.show("Catalog matched!", "success");
     } catch (e: any) {
       Haptics.error();
       apiLogger.logError(`Refresh failed: ${e.message}`);
-      alert(`Sync Error: ${e.message || "Could not reach Spotify. Check your connection or Client ID."}`);
+      toastService.show("Match failed. Check connection.", "error");
     } finally {
       setRefreshing(false);
     }
@@ -66,7 +68,7 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
       })));
     } catch (e) {
       apiLogger.logError("Failed to load user playlists for picker.");
-      alert("Failed to load your playlists. Try refreshing your connection.");
+      toastService.show("Failed to load playlists", "error");
     } finally {
       setPickerLoading(false);
     }
@@ -90,6 +92,7 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
     
     setShowPickerFor(null);
     apiLogger.logClick(`RapSources: Linked slot "${showPickerFor}" to ID ${playlistId}`);
+    toastService.show("Source linked", "success");
   };
 
   const handleLinkByUrl = () => {
@@ -110,7 +113,7 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
     }
 
     if (!type || !id) {
-      alert("Invalid Spotify URL. Please paste a valid Playlist or Album link.");
+      toastService.show("Invalid Spotify URL", "warning");
       return;
     }
 
@@ -121,6 +124,7 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
     setShowUrlInputFor(null);
     setUrlInput("");
     apiLogger.logClick(`RapSources: Linked "${showUrlInputFor}" by URL (${type}: ${id})`);
+    toastService.show("Link matched!", "success");
   };
 
   const getSource = (name: string) => {
@@ -204,23 +208,9 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
                     )}
                   </div>
                 </div>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all ${isLinked ? 'bg-palette-emerald/10 border-palette-emerald/30 text-palette-emerald cursor-pointer active:scale-90' : 'bg-red-500/10 border-red-500/30 text-red-500 active:scale-90 cursor-pointer'}`} onClick={() => openPicker(name)}>
-                   {isLinked ? (
-                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                   ) : (
-                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
-                   )}
-                </div>
               </div>
             );
           })}
-        </div>
-
-        <div className="px-6 py-6 bg-white/5 rounded-3xl border border-white/5 mt-2">
-           <h4 className="text-[10px] font-black text-palette-pink uppercase tracking-widest mb-2">Instructions</h4>
-           <p className="text-[12px] text-zinc-500 font-garet font-medium leading-relaxed">
-             Sync looks through all your saved playlists. Tap <span className="text-palette-pink font-bold">Pick From Library</span> to manually link a specific list, or use <span className="text-palette-teal font-bold">Enter URL</span> for albums or public lists not in your library.
-           </p>
         </div>
       </div>
 
@@ -231,7 +221,6 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
                <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-4xl font-mango text-palette-teal leading-none">Library Picker</h3>
-                    <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mt-2">Link slot: {showPickerFor}</p>
                   </div>
                   <button onClick={() => setShowPickerFor(null)} className="text-zinc-500 active:text-white transition-colors">
                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -243,24 +232,17 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
                     type="text"
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
-                    placeholder="Search your library..."
+                    placeholder="Search library..."
                     autoFocus
                     className="w-full bg-black/40 border border-white/10 rounded-2xl px-10 py-3 text-sm text-[#D1F2EB] font-garet font-bold outline-none focus:border-palette-teal transition-all"
                   />
-                  <svg className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                </div>
              </header>
              
              <div className="flex-1 overflow-y-auto px-6 pb-6">
                 {pickerLoading ? (
-                  <div className="h-full flex flex-col items-center justify-center gap-4 py-20">
+                  <div className="h-full flex flex-col items-center justify-center py-20">
                     <div className="w-10 h-10 border-3 border-palette-pink border-t-transparent rounded-full animate-spin" />
-                    <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Loading Your Library...</span>
-                  </div>
-                ) : filteredPlaylists.length === 0 ? (
-                  <div className="py-20 text-center flex flex-col items-center gap-4">
-                    <span className="text-4xl opacity-20">🔎</span>
-                    <p className="text-zinc-500 font-garet font-medium text-lg">No playlists found.</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
@@ -277,12 +259,6 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
                   </div>
                 )}
              </div>
-
-             <footer className="p-8 pt-4 shrink-0 border-t border-white/5 bg-zinc-900/50">
-                <p className="text-[9px] text-zinc-600 font-black uppercase tracking-widest text-center leading-relaxed">
-                  Showing all playlists you own or follow.
-                </p>
-             </footer>
           </div>
         </div>
       )}
@@ -292,7 +268,6 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
           <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-md flex flex-col gap-6 animate-in zoom-in duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
             <header>
               <h2 className="text-4xl font-mango text-palette-teal leading-none">External Link</h2>
-              <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mt-2">Link slot: {showUrlInputFor}</p>
             </header>
             <div className="flex flex-col gap-2">
               <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-1">Spotify URL</label>
@@ -304,7 +279,6 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
                 autoFocus
                 className="bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-[#D1F2EB] font-garet font-bold outline-none focus:border-palette-pink transition-all"
               />
-              <p className="text-[9px] text-zinc-500 font-medium px-1">Works for both Playlists and Albums.</p>
             </div>
             <div className="flex flex-col gap-3 mt-4">
               <button 
@@ -313,12 +287,6 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
                 className="w-full bg-palette-pink text-white font-black py-5 rounded-[24px] active:scale-95 transition-all font-garet uppercase tracking-widest text-xs shadow-xl shadow-palette-pink/20"
               >
                 Link Source
-              </button>
-              <button 
-                onClick={() => setShowUrlInputFor(null)}
-                className="w-full py-4 text-zinc-600 font-black uppercase tracking-widest text-[10px] active:text-zinc-400"
-              >
-                Cancel
               </button>
             </div>
           </div>
