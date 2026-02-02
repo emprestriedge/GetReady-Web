@@ -30,6 +30,51 @@ const RECIPES: Record<string, Recipe> = {
 };
 
 export class SpotifyPlaybackEngine implements PlaybackEngine {
+  /**
+   * playTrack - Centralized playback logic with Silent Wake-up and URI Safety.
+   */
+  static async playTrack(track: Track, allUris: string[], index: number): Promise<void> {
+    if (!track || !track.uri) {
+      apiLogger.logError("Playback failed: Track data is invalid or missing URI.");
+      return;
+    }
+
+    // FIX: String Pattern Sanitization
+    const safeUri = track.uri.startsWith('spotify:') ? track.uri : `spotify:track:${track.uri}`;
+
+    try {
+      const devices = await SpotifyApi.getDevices();
+      const active = devices.find(d => d.is_active);
+      const localId = spotifyPlayback.getDeviceId();
+
+      // SILENT WAKE-UP: Try to transfer to local SDK player if nothing is active
+      if (!active && localId) {
+        apiLogger.logClick(`Silent Wake-up: Transferring playback to GetReady SDK (${localId})`);
+        try {
+          await spotifyPlayback.transferPlayback(localId, true);
+          await new Promise(r => setTimeout(r, 450)); // Small buffer for Spotify state update
+          await spotifyPlayback.setShuffle(false, localId);
+          await spotifyPlayback.playUrisOnDevice(localId, allUris, index);
+          return;
+        } catch (sdkError) {
+          apiLogger.logError("Silent Wake-up transfer failed, trying fallback.");
+        }
+      }
+
+      if (active) {
+        await spotifyPlayback.setShuffle(false, active.id);
+        await spotifyPlayback.playUrisOnDevice(active.id, allUris, index);
+      } else {
+        // SAFE DEEP LINK FALLBACK: Direct sanitization check
+        apiLogger.logClick(`Wake-up Fallback: Deep linking to ${safeUri}`);
+        window.location.assign(safeUri);
+      }
+    } catch (e: any) {
+      apiLogger.logError(`Playback Logic Crash: ${e.message}. Using safety deep link.`);
+      window.location.assign(safeUri);
+    }
+  }
+
   private async getHistoryIds(optionId: string): Promise<Set<string>> {
     const key = `run_history_ids_${optionId}`;
     const saved = localStorage.getItem(key);
@@ -52,12 +97,8 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
   async generateRunResult(option: RunOption, rules: RuleSettings): Promise<RunResult> {
     if (USE_MOCK_DATA) {
       await new Promise(r => setTimeout(r, 1500));
-      // Branch to podcast logic even in mock mode to allow testing the podcast UI
       if (option.type === RunOptionType.PODCAST) return this.generatePodcastResult(option);
-
       const targetLen = rules.playlistLength || 35;
-      
-      // Fixed logic for balanced mock generation in Rap mode
       if (option.id === 'rap_hiphop') {
           return {
             runType: RunOptionType.MUSIC,
@@ -69,22 +110,8 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
             debugSummary: "Mock Mode Active"
           };
       }
-
-      // Special handling for A7x Radio mock data to show similar bands
       if (option.id === 'a7x_deep') {
-        const a7xMocks: Track[] = [
-          { uri: 'spotify:track:a7x1', title: 'Bat Country', artist: 'Avenged Sevenfold', album: 'City of Evil', imageUrl: 'https://i.scdn.co/image/ab67616d0000b273d6396f4e156488796853381e', durationMs: 313000, status: 'none' },
-          { uri: 'spotify:track:a7x2', title: 'Hail to the King', artist: 'Avenged Sevenfold', album: 'Hail to the King', imageUrl: 'https://i.scdn.co/image/ab67616d0000b273292723707e77a1e0b5711681', durationMs: 305000, status: 'none' },
-          { uri: 'spotify:track:a7x3', title: 'Nightmare', artist: 'Avenged Sevenfold', album: 'Nightmare', imageUrl: 'https://i.scdn.co/image/ab67616d0000b27303c73336465355644788339b', durationMs: 374000, status: 'none' },
-        ];
-        const similarMocks: Track[] = [
-          { uri: 'spotify:track:soad1', title: 'Chop Suey!', artist: 'System of a Down', album: 'Toxicity', imageUrl: 'https://i.scdn.co/image/ab67616d0000b2736798031d6837090856002f5e', durationMs: 210000, status: 'none' },
-          { uri: 'spotify:track:korn1', title: 'Freak on a Leash', artist: 'Korn', album: 'Follow the Leader', imageUrl: 'https://i.scdn.co/image/ab67616d0000b273876964177583769876435678', durationMs: 255000, status: 'none' },
-          { uri: 'spotify:track:shine1', title: 'Sound of Madness', artist: 'Shinedown', album: 'The Sound of Madness', imageUrl: 'https://i.scdn.co/image/ab67616d0000b273215647895642314567894561', durationMs: 230000, status: 'none' },
-          { uri: 'spotify:track:bb1', title: 'The Diary of Jane', artist: 'Breaking Benjamin', album: 'Phobia', imageUrl: 'https://i.scdn.co/image/ab67616d0000b273024567890123456789012345', durationMs: 200000, status: 'none' },
-        ];
-        
-        const combined = this.shuffleArray([...a7xMocks, ...similarMocks]);
+        const combined = this.shuffleArray([...MOCK_TRACKS]);
         return {
           runType: RunOptionType.MUSIC,
           optionName: option.name,
@@ -95,7 +122,6 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
           debugSummary: "Mock Mode Active"
         };
       }
-
       return {
         runType: RunOptionType.MUSIC,
         optionName: option.name,
@@ -119,7 +145,7 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
     }
 
     const historyIds = await this.getHistoryIds(option.id);
-    const filter = (t: SpotifyTrack) => !t.is_local && t.is_playable !== false && !BlockStore.isBlocked(t.id) && !historyIds.has(t.id);
+    const filter = (t: SpotifyTrack) => t && !t.is_local && t.is_playable !== false && !BlockStore.isBlocked(t.id) && !historyIds.has(t.id);
 
     const config = configStore.getConfig();
     const catalog = config.catalog;
@@ -130,18 +156,16 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
 
       let tracks: SpotifyTrack[] = [];
       if (option.id === 'liked_songs') {
-        tracks = await SpotifyDataService.getLikedTracks(totalTarget * 5); // Fetch larger pool for randomization
+        tracks = await SpotifyDataService.getLikedTracks(totalTarget * 5);
       } else if (option.id === 'shazam_tracks') {
         tracks = catalog.shazamId ? await SpotifyDataService.getPlaylistTracks(catalog.shazamId, Math.max(150, totalTarget * 3)) : [];
       } else if (option.id === 'acoustic_rock') {
         tracks = catalog.acoustic90sId ? await SpotifyDataService.getPlaylistTracks(catalog.acoustic90sId, Math.max(150, totalTarget * 3)) : [];
       }
 
-      // CRITICAL FIX: Randomize order before slicing to ensure new results on Regenerate
       const filteredTracks = tracks.filter(filter);
       const shuffledTracks = this.shuffleArray(filteredTracks);
       let finalTracks = shuffledTracks.slice(0, totalTarget);
-      
       let warning: string | undefined;
       
       if (finalTracks.length < totalTarget) {
@@ -150,7 +174,6 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
         finalTracks = [...finalTracks, ...fallback];
         warning = `Source limit reached. Filled ${needed} tracks via history fallback.`;
       }
-
       return this.mapToRunResult(option, finalTracks.slice(0, totalTarget), `Source: ${option.name}`, [], warning);
     }
 
@@ -208,17 +231,8 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
       if (!addedAny) break;
     }
 
-    let warning: string | undefined;
-    if (resultTracks.length < totalTarget) {
-      const needed = totalTarget - resultTracks.length;
-      const combinedFallback = this.shuffleArray([...likedPool, ...shazamPool, ...acousticPool, ...rapPool]);
-      const uniqueFallback = combinedFallback.filter(t => !resultTracks.find(rt => rt.id === t.id));
-      resultTracks.push(...uniqueFallback.slice(0, needed));
-      warning = `Mixed Source limit. Added ${needed} fallback tracks.`;
-    }
-
     const sourceSummary = `Acoustic ${recipe.acoustic} • A7X ${recipe.a7x} • Shazam ${recipe.shazam} • Liked ${recipe.liked} • Rap ${recipe.rap} • New ${newTracks.length}`;
-    return this.mapToRunResult(option, resultTracks.slice(0, totalTarget), sourceSummary, newTracks, warning);
+    return this.mapToRunResult(option, resultTracks.slice(0, totalTarget), sourceSummary, newTracks);
   }
 
   private mapToRunResult(option: RunOption, spotifyTracks: SpotifyTrack[], summary: string, newTracksPool: SpotifyTrack[] = [], warning?: string): RunResult {
@@ -227,7 +241,7 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
       optionName: option.name,
       createdAt: new Date().toISOString(),
       playlistName: `${option.name} • ${new Date().toLocaleDateString()}`,
-      tracks: spotifyTracks.map(t => ({ uri: t.uri, title: t.name, artist: t.artists.map(a => a.name).join(', '), album: t.album.name, imageUrl: t.album.images?.[0]?.url, durationMs: t.duration_ms, isNew: newTracksPool.some(nt => nt.id === t.id) })),
+      tracks: spotifyTracks.filter(Boolean).map(t => ({ uri: t.uri, title: t.name, artist: t.artists.map(a => a.name).join(', '), album: t.album.name, imageUrl: t.album.images?.[0]?.url, durationMs: t.duration_ms, isNew: newTracksPool.some(nt => nt.id === t.id) })),
       sourceSummary: summary, debugSummary: summary, warning
     };
   }
@@ -237,88 +251,46 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
     const sources = Object.values(catalog.rapSources || {}).filter(s => s !== null) as any[];
     if (sources.length === 0) return [];
     const pools = await Promise.all(sources.map(async (s) => {
-      try { return s.type === 'playlist' ? await SpotifyDataService.getPlaylistTracks(s.id, 50) : await SpotifyDataService.getAlbumTracksFull(s.id); } catch (e) { return []; }
+      try { 
+        return s.type === 'playlist' ? await SpotifyDataService.getPlaylistTracks(s.id, 50) : await SpotifyDataService.getAlbumTracksFull(s.id); 
+      } catch (e) { 
+        apiLogger.logError(`Source fetch failed: ${s.id}`);
+        return []; 
+      }
     }));
-    return pools.flat();
+    return pools.flat().filter(Boolean);
   }
 
   private async generateRapRadioResult(option: RunOption, rules: RuleSettings, historyIds: Set<string>): Promise<RunResult> {
     const totalTarget = rules.playlistLength || 35;
     const catalog = configStore.getConfig().catalog;
     const sources = Object.values(catalog.rapSources || {}).filter(s => s !== null) as any[];
-    
     if (sources.length === 0) throw new Error("Link Rap sources in Developer Tools.");
-    
-    apiLogger.logClick(`RapMix: Fetching from ${sources.length} sources to ensure balanced distribution.`);
-
-    // Balanced Pool Generation Strategy
     const sourcePools = await Promise.all(sources.map(async (source) => {
       try {
-        let rawTracks: SpotifyTrack[] = [];
-        if (source.type === 'playlist') {
-          rawTracks = await SpotifyDataService.getPlaylistTracksBulk(source.id, 100);
-        } else {
-          rawTracks = await SpotifyDataService.getAlbumTracksFull(source.id);
-        }
-
-        // Apply strict Rap Radio filters per source
+        let rawTracks = source.type === 'playlist' ? await SpotifyDataService.getPlaylistTracksBulk(source.id, 100) : await SpotifyDataService.getAlbumTracksFull(source.id);
         return rawTracks.filter(t => {
-          if (BlockStore.isBlocked(t.id) || historyIds.has(t.id)) return false;
+          if (!t || BlockStore.isBlocked(t.id) || historyIds.has(t.id)) return false;
           if (!this.isLatinOnly(t.name) || !this.isLatinOnly(t.artists[0].name)) return false;
           const year = parseInt(t.album.release_date?.split('-')[0] || "");
           return !isNaN(year) && year >= 1990 && year <= 2009;
         });
-      } catch (e) {
-        return [];
-      }
+      } catch (e) { return []; }
     }));
-
-    // Round-Robin Selection to guarantee statistical balance
     const resultTracks: SpotifyTrack[] = [];
     const randomizedPools = sourcePools.map(p => this.shuffleArray(p));
-    
-    let iterations = 0;
-    const MAX_ITERATIONS = totalTarget * 2; // Safety break
-
-    while (resultTracks.length < totalTarget && iterations < MAX_ITERATIONS) {
+    while (resultTracks.length < totalTarget) {
       let tracksAddedThisPass = 0;
-      
       for (const pool of randomizedPools) {
         if (pool.length > 0) {
           const track = pool.shift()!;
-          // Ensure uniqueness across the combined mix
-          if (!resultTracks.find(rt => rt.id === track.id)) {
-            resultTracks.push(track);
-            tracksAddedThisPass++;
-          }
+          if (!resultTracks.find(rt => rt.id === track.id)) { resultTracks.push(track); tracksAddedThisPass++; }
         }
         if (resultTracks.length >= totalTarget) break;
       }
-
-      if (tracksAddedThisPass === 0) break; // All pools exhausted
-      iterations++;
+      if (tracksAddedThisPass === 0) break;
     }
-
-    let warning: string | undefined;
-    if (resultTracks.length < totalTarget) {
-      const needed = totalTarget - resultTracks.length;
-      // Fallback: relax history filter if we can't meet target with fresh tracks
-      const fallbackPool = this.shuffleArray(sourcePools.flat());
-      const extra = fallbackPool.filter(t => !resultTracks.find(rt => rt.id === t.id)).slice(0, needed);
-      resultTracks.push(...extra);
-      warning = `Limited balanced Rap sources. Filled ${extra.length} slots via duplicate fallback.`;
-    }
-
-    // Final shuffle so the mix isn't predictably grouped by source sequence
-    const finalShuffled = this.shuffleArray(resultTracks);
-
-    return this.mapToRunResult(
-      option, 
-      finalShuffled, 
-      `Balanced Build: ${sources.length} sources contribute ${Math.floor(totalTarget / sources.length)} tracks each average.`, 
-      [], 
-      warning
-    );
+    return this.mapToRunResult(option, this.shuffleArray(resultTracks), `Balanced Build: ${sources.length} sources.`);
   }
 
   private async generateA7XRadioResult(option: RunOption, rules: RuleSettings, historyIds: Set<string>): Promise<RunResult> {
@@ -326,134 +298,50 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
     const catalog = configStore.getConfig().catalog;
     const a7xId = catalog.a7xArtistId || await SpotifyDataService.robustResolveArtist("Avenged Sevenfold");
     if (!a7xId) throw new Error("Could not resolve A7X ID.");
-    if (!catalog.a7xArtistId) configStore.updateCatalog({ a7xArtistId: a7xId });
-
-    // Quota logic: ~50% A7x (max 18), rest is similar artists
     const a7xQuota = Math.min(18, Math.floor(totalTarget * 0.5));
     const similarQuota = totalTarget - a7xQuota;
-
-    apiLogger.logClick(`A7XRadio: Building mixed roster (A7X: ${a7xQuota}, Similar: ${similarQuota})`);
-
     const similarBands = ["Shinedown", "System of a Down", "Korn", "Five Finger Death Punch", "Rage Against the Machine", "Breaking Benjamin"];
-
     const [a7xPool, similarPools] = await Promise.all([
-      // Fetch A7x Pool
       (rules.a7xMode === 'DeepCuts' ? SpotifyDataService.getDeepCuts(a7xId, 100).then(r => r.tracks) : SpotifyDataService.getArtistTopTracks(a7xId)),
-      // Fetch Similar Bands Pools
       Promise.all(similarBands.map(async (band) => {
-        try {
-          const bandId = await SpotifyDataService.robustResolveArtist(band);
-          if (!bandId) return [];
-          return await SpotifyDataService.getArtistTopTracks(bandId);
-        } catch (e) {
-          return [];
-        }
+        try { const bandId = await SpotifyDataService.robustResolveArtist(band); return bandId ? await SpotifyDataService.getArtistTopTracks(bandId) : []; } catch (e) { return []; }
       }))
     ]);
-
-    // Process A7x selection
-    const a7xSelection = this.shuffleArray(a7xPool.filter(t => !historyIds.has(t.id) && !BlockStore.isBlocked(t.id))).slice(0, a7xQuota);
-
-    // Process Similar Bands selection (Round-robin to ensure variety)
+    const a7xSelection = this.shuffleArray(a7xPool.filter(t => t && !historyIds.has(t.id) && !BlockStore.isBlocked(t.id))).slice(0, a7xQuota);
     const randomizedSimilarPools = similarPools.map(p => this.shuffleArray(p));
     const similarSelection: SpotifyTrack[] = [];
-    
-    let iterations = 0;
-    while (similarSelection.length < similarQuota && iterations < 10) {
+    while (similarSelection.length < similarQuota) {
       let addedThisPass = 0;
       for (const pool of randomizedSimilarPools) {
         if (pool.length > 0) {
           const track = pool.shift()!;
-          if (!similarSelection.find(s => s.id === track.id) && !a7xSelection.find(a => a.id === track.id) && !historyIds.has(track.id) && !BlockStore.isBlocked(track.id)) {
-            similarSelection.push(track);
-            addedThisPass++;
-          }
+          if (track && !similarSelection.find(s => s.id === track.id) && !a7xSelection.find(a => a.id === track.id) && !historyIds.has(track.id) && !BlockStore.isBlocked(track.id)) { similarSelection.push(track); addedThisPass++; }
         }
         if (similarSelection.length >= similarQuota) break;
       }
       if (addedThisPass === 0) break;
-      iterations++;
     }
-
-    // Final merge and shuffle
-    const mergedPool = this.shuffleArray([...a7xSelection, ...similarSelection]);
-    
-    let warning: string | undefined;
-    if (mergedPool.length < totalTarget) {
-      const needed = totalTarget - mergedPool.length;
-      const extra = this.shuffleArray([...a7xPool, ...similarPools.flat()]).filter(t => !mergedPool.find(m => m.id === t.id)).slice(0, needed);
-      mergedPool.push(...extra);
-      warning = `Limited source pool. Supplemented ${needed} tracks.`;
-    }
-
-    return this.mapToRunResult(
-      option, 
-      mergedPool, 
-      `A7X Mixed Radio: ${a7xSelection.length} A7X tracks + ${similarSelection.length} similar artist tracks.`, 
-      [], 
-      warning
-    );
+    return this.mapToRunResult(option, this.shuffleArray([...a7xSelection, ...similarSelection]), `A7X Mixed Radio`);
   }
 
   private async generatePodcastResult(option: RunOption): Promise<RunResult> {
     const showId = ContentIdStore.get(option.idKey || '');
     const me = await SpotifyApi.getMe();
     const market = me.country || 'US';
-    
-    // In Mock Mode, force fetching episodes even if showId is empty (Universal Mock)
     const effectiveShowId = (USE_MOCK_DATA && !showId) ? 'mock_show_id' : showId;
-
-    // Attempt to fetch from linked show ID or forced mock ID
-    if (effectiveShowId && typeof effectiveShowId === 'string') {
+    if (effectiveShowId) {
       try {
         const eps = await SpotifyDataService.getShowEpisodes(effectiveShowId, 5, market);
         if (eps && eps.length > 0) {
-          const firstEp = eps[0];
           return { 
-            runType: RunOptionType.PODCAST, 
-            optionName: option.name, 
-            createdAt: new Date().toISOString(), 
-            playlistName: option.name, 
-            // Map the episode list to the standard 'tracks' array for RunView to display
-            tracks: eps.map(ep => ({
-               uri: ep.uri,
-               title: ep.name,
-               artist: option.name, // Display the Show Name as the artist
-               album: new Date(ep.release_date).toLocaleDateString(), // Display release date in album field
-               imageUrl: ep.images?.[0]?.url || "",
-               durationMs: ep.duration_ms
-            })),
-            episode: { 
-              id: firstEp.id, 
-              name: firstEp.name, 
-              description: firstEp.description, 
-              releaseDate: firstEp.release_date, 
-              durationMs: firstEp.duration_ms, 
-              imageUrl: firstEp.images?.[0]?.url || "", 
-              uri: firstEp.uri 
-            } 
+            runType: RunOptionType.PODCAST, optionName: option.name, createdAt: new Date().toISOString(), playlistName: option.name,
+            tracks: eps.map(ep => ({ uri: ep.uri, title: ep.name, artist: option.name, album: new Date(ep.release_date).toLocaleDateString(), imageUrl: ep.images?.[0]?.url || "", durationMs: ep.duration_ms })),
+            episode: { id: eps[0].id, name: eps[0].name, description: eps[0].description, releaseDate: eps[0].release_date, durationMs: eps[0].duration_ms, imageUrl: eps[0].images?.[0]?.url || "", uri: eps[0].uri } 
           };
         }
-      } catch (e) {
-        apiLogger.logError(`Podcast sync failed for show ${effectiveShowId}`);
-      }
+      } catch (e) {}
     }
-
-    // Fallback: search for candidates if no episodes found
     const search = await SpotifyDataService.searchShows(option.name, 5);
-    return { 
-      runType: RunOptionType.PODCAST, 
-      optionName: option.name, 
-      createdAt: new Date().toISOString(), 
-      playlistName: option.name, 
-      candidates: search.map(s => ({ 
-        id: s.id, 
-        name: s.name, 
-        publisher: s.publisher, 
-        imageUrl: s.images?.[0]?.url || "", 
-        description: s.description || "", 
-        explicit: s.explicit || false 
-      })) 
-    };
+    return { runType: RunOptionType.PODCAST, optionName: option.name, createdAt: new Date().toISOString(), playlistName: option.name, candidates: search.map(s => ({ id: s.id, name: s.name, publisher: s.publisher, imageUrl: s.images?.[0]?.url || "", description: s.description || "", explicit: s.explicit || false })) };
   }
 }
