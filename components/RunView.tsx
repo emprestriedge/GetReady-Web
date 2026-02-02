@@ -45,16 +45,26 @@ const TrackRow: React.FC<{
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    
+    // Double Tap Detection Logic
+    const now = Date.now();
+    if (now - lastTapTime.current < 300) {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+      onPlay(track, index);
+      Haptics.impact();
+      lastTapTime.current = 0; // Reset
+      return;
+    }
+    lastTapTime.current = now;
+
+    // Long Press for Status toggle
     longPressTimer.current = window.setTimeout(() => {
       onStatusToggle(track);
       Haptics.impact();
     }, 600);
-    const now = Date.now();
-    if (now - lastTapTime.current < 300) {
-      onPlay(track, index);
-      Haptics.impact();
-    }
-    lastTapTime.current = now;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -90,7 +100,6 @@ const TrackRow: React.FC<{
         <span className="text-white font-black text-[12px] uppercase tracking-[0.4em]" style={{ opacity: Math.min(1, Math.abs(swipeX) / 80) }}>Block</span>
       </div>
       <button 
-        onClick={() => onPlay(track, index)}
         onDoubleClick={() => onPlay(track, index)}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -99,16 +108,12 @@ const TrackRow: React.FC<{
         className={`w-full flex items-center gap-4 p-5 transition-all group text-left select-none relative z-10 border-b border-[#6D28D9]/20 ${isActive ? 'bg-palette-teal/15 border-palette-teal/40 shadow-[inset_0_0_40px_rgba(45,185,177,0.15)]' : 'bg-[#0a0a0a]/85 backdrop-blur-3xl hover:bg-white/5 active:bg-palette-teal/5'}`}
       >
         <div className="relative shrink-0 flex items-center justify-center min-w-[24px]">
-          {isActive ? (
-            <div className="flex gap-0.5 items-end h-4 mb-0.5">
-               <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.6s_ease-in-out_infinite]" style={{ height: '100%' }} />
-               <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.8s_ease-in-out_infinite]" style={{ height: '60%' }} />
-               <div className="w-1 bg-palette-teal rounded-full animate-[pulse_0.7s_ease-in-out_infinite]" style={{ height: '85%' }} />
-            </div>
-          ) : <StatusAsterisk status={track.status === 'liked' || track.status === 'gem' ? 'liked' : 'none'} />}
+          {/* FIXED: Removed the animated bars and ensured StatusAsterisk is always visible to fix UI overlap */}
+          <StatusAsterisk status={track.status === 'liked' || track.status === 'gem' ? 'liked' : 'none'} />
         </div>
         <div className={`w-12 h-12 rounded-2xl bg-zinc-900 overflow-hidden shrink-0 border relative pointer-events-none transition-all duration-500 ${isActive ? 'border-palette-teal/60 scale-105 shadow-[0_0_20px_rgba(45,185,177,0.4)]' : 'border-white/10'}`}>
           <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
+          {/* Subtle pulse overlay is kept as it doesn't overlap other buttons */}
           {isActive && <div className="absolute inset-0 bg-palette-teal/15 animate-pulse" />}
         </div>
         <div className="flex-1 min-w-0 pointer-events-none">
@@ -204,28 +209,34 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   const handlePlayTrack = async (track: Track, index: number) => {
     if (!result?.tracks) return;
     Haptics.light();
-    setIsQueuePlaying(true); 
-    setCurrentPlayingUri(track.uri);
-    onPlayTriggered?.();
     
-    // FIX: Using centralized playback engine for Silent Wake-up logic
-    await SpotifyPlaybackEngine.playTrack(track, result.tracks.map(t => t.uri), index);
-    
-    // Check if we need to show the manual wake up prompt as a secondary safety
-    setTimeout(async () => {
-      const state = await SpotifyApi.request('/me/player');
-      if (!state || !state.is_playing) setShowWakeUpPrompt(track.uri);
-    }, 2500);
+    try {
+      await SpotifyPlaybackEngine.playTrack(track, result.tracks.map(t => t.uri), index);
+      setIsQueuePlaying(true); 
+      setCurrentPlayingUri(track.uri);
+      onPlayTriggered?.();
+      setShowWakeUpPrompt(null);
+    } catch (e: any) {
+      if (e.message === "NO_ACTIVE_DEVICE") {
+        setShowDevicePicker(true);
+        setShowWakeUpPrompt(track.uri);
+      }
+    }
   };
 
   const triggerWakeUp = () => {
     if (!showWakeUpPrompt) return;
     Haptics.impact();
-    // FIX: Sanitization for deep link crash
+    
+    // FIX: String Pattern Sanitization for deep link crash
     const uriParts = showWakeUpPrompt.split(':');
     const trackId = uriParts[uriParts.length - 1];
-    toastService.show("Waking up Spotify... Tap the Back arrow to return.", "info");
-    window.location.assign(`spotify:track:${trackId}`);
+    const safeUri = showWakeUpPrompt.startsWith('spotify:') 
+      ? showWakeUpPrompt 
+      : `spotify:track:${trackId}`;
+      
+    toastService.show("Opening Spotify...", "info");
+    window.location.assign(safeUri);
     setShowWakeUpPrompt(null);
   };
 
@@ -287,7 +298,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         <button onClick={() => { Haptics.light(); onClose(); }} className="text-palette-pink text-[14px] font-black uppercase tracking-[0.2em] active:opacity-50 transition-opacity">Back</button>
         <div className="flex flex-col items-center">
           <span className="font-black text-[10px] uppercase tracking-[0.5em] text-zinc-600 leading-none">Active Queue</span>
-          {showWakeUpPrompt && <span className="text-[7px] text-palette-gold font-black uppercase tracking-widest mt-1 animate-pulse">Connection Asleep</span>}
+          {showWakeUpPrompt && <span className="text-[7px] text-palette-gold font-black uppercase tracking-widest mt-1 animate-pulse">Connection Inactive</span>}
         </div>
         <div className="w-12" />
       </div>
@@ -317,7 +328,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                   <div className="bg-palette-gold/10 border border-palette-gold/30 px-3 py-1 rounded-xl"><span className="text-palette-gold text-[10px] font-black uppercase tracking-[0.15em]">{result?.tracks?.length || 0} Tracks</span></div>
                   <div className="bg-[#6D28D9]/10 border border-[#6D28D9]/30 px-3 py-1 rounded-xl"><span className="text-[#8B5CF6] text-[10px] font-black uppercase tracking-[0.15em]">{totalDurationStr}</span></div>
                 </div>
-                {showWakeUpPrompt && <button onClick={triggerWakeUp} className="bg-palette-gold/20 border border-palette-gold text-palette-gold px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest animate-pulse shadow-lg shadow-palette-gold/10">Wake Up Spotify</button>}
+                {showWakeUpPrompt && <button onClick={triggerWakeUp} className="bg-palette-gold/20 border border-palette-gold text-palette-gold px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest animate-pulse shadow-lg shadow-palette-gold/10">Play in Spotify</button>}
               </div>
             </header>
             <div className="bg-[#0a0a0a]/60 backdrop-blur-3xl rounded-[32px] overflow-hidden border border-white/10 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.9)] stagger-entry stagger-2">

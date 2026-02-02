@@ -31,8 +31,8 @@ const RECIPES: Record<string, Recipe> = {
 
 export class SpotifyPlaybackEngine implements PlaybackEngine {
   /**
-   * playTrack - Centralized playback logic with Precision Targeting and Silent Self-Transfer.
-   * Order: Active Device > Local SDK Player > Visible External Device > Deep Link.
+   * playTrack - Manual Control Logic.
+   * Only plays if an active device is found. Throws error if manual intervention is needed.
    */
   static async playTrack(track: Track, allUris: string[], index: number): Promise<void> {
     if (!track || !track.uri) {
@@ -46,47 +46,24 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
     try {
       const devices = await SpotifyApi.getDevices();
       const active = devices.find(d => d.is_active);
-      const localId = spotifyPlayback.getDeviceId();
 
-      // 1. ACTIVE DEVICE: Use immediately for seamless in-app transition
+      // 1. ACTIVE DEVICE: Seamless in-app transition
       if (active) {
-        apiLogger.logClick(`Playback: Sending command to active device ${active.name}`);
+        apiLogger.logClick(`Playback: Command sent to active device ${active.name}`);
         await spotifyPlayback.setShuffle(false, active.id);
         await spotifyPlayback.playUrisOnDevice(active.id, allUris, safeUri);
         return;
       }
 
-      // 2. SILENT SELF-TRANSFER: Transfer to internal Web SDK player if it exists
-      if (localId) {
-        apiLogger.logClick(`Playback: Silently transferring to local SDK player ${localId}`);
-        try {
-          await spotifyPlayback.transferPlayback(localId, false); // Transfer without auto-play to avoid glitch
-          await new Promise(r => setTimeout(r, 600)); // Optimal buffer for Spotify state propagation
-          await spotifyPlayback.setShuffle(false, localId);
-          await spotifyPlayback.playUrisOnDevice(localId, allUris, safeUri);
-          return;
-        } catch (err) {
-          apiLogger.logError("Local transfer failed, falling back to network scanning.");
-        }
-      }
-
-      // 3. IDLE EXTERNAL DEVICES: Wake up the first visible device on the network
-      if (devices.length > 0) {
-        const target = devices[0];
-        apiLogger.logClick(`Playback: Waking up idle device ${target.name}`);
-        await spotifyPlayback.transferPlayback(target.id, true);
-        await new Promise(r => setTimeout(r, 600));
-        await spotifyPlayback.playUrisOnDevice(target.id, allUris, safeUri);
-        return;
-      }
-
-      // 4. TRUE COLD START: Last resort deep link to external app
-      apiLogger.logClick(`Playback: No devices detected. Triggering Deep Link.`);
-      window.location.assign(safeUri);
+      // 2. NO ACTIVE DEVICE: Do nothing automatically. 
+      // Throw to signal UI to show picker or wake up prompt.
+      throw new Error("NO_ACTIVE_DEVICE");
       
     } catch (e: any) {
-      apiLogger.logError(`Playback Critical Error: ${e.message}. Using safety deep link.`);
-      window.location.assign(safeUri);
+      if (e.message !== "NO_ACTIVE_DEVICE") {
+        apiLogger.logError(`Playback Engine Error: ${e.message}`);
+      }
+      throw e;
     }
   }
 

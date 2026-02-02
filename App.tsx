@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import { TabType, RuleSettings, RunOption, RunRecord, SpotifyUser, RunResult, AppConfig } from './types';
 import HomeView from './components/HomeView';
@@ -25,13 +24,9 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix: Use React.Component to ensure this.props and this.state are correctly recognized by the TypeScript compiler
+// Fixed: Use React.Component to ensure props and state are correctly typed by the TypeScript compiler.
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-  }
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
     const normalized = error instanceof Error ? error : new Error("Unknown Error");
@@ -54,6 +49,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
+    // Fixed: Accessed this.props.children which is now correctly recognized via inheritance from React.Component.
     return this.props.children || null;
   }
 }
