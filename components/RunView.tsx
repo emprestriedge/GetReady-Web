@@ -240,6 +240,23 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     setShowWakeUpPrompt(null);
   };
 
+  const handleOpenInSpotify = () => {
+    if (!result?.tracks || result.tracks.length === 0) return;
+    Haptics.impact();
+    const track = result.tracks[0];
+    
+    // specific check to prevent "pattern" crash
+    const uriParts = track.uri.split(':');
+    const trackId = uriParts[uriParts.length - 1];
+    const safeUri = track.uri.startsWith('spotify:') 
+      ? track.uri 
+      : `spotify:track:${trackId}`;
+
+    toastService.show("Launching Spotify...", "info");
+    window.location.assign(safeUri);
+    setShowPlayOptions(false);
+  };
+
   const handleToggleStatus = async (track: Track) => {
     if (!result || !result.tracks) return;
     const currentTrack = result.tracks.find(t => t.uri === track.uri);
@@ -364,6 +381,15 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
            <div className="bg-zinc-900 border border-white/10 rounded-[44px] p-8 w-full max-w-sm flex flex-col gap-4 animate-in zoom-in shadow-2xl" onClick={e => e.stopPropagation()}>
               <button onClick={() => { if (result?.tracks) handlePlayTrack(result.tracks[0], 0); setShowPlayOptions(false); }} className="relative overflow-hidden w-full bg-[#1DB954] text-white font-black py-6 rounded-3xl font-garet uppercase tracking-widest text-[13px] active:scale-95 transition-all">Play on Device</button>
               <button onClick={() => { setShowPlayOptions(false); setShowDevicePicker(true); }} className={`relative overflow-hidden w-full py-6 rounded-3xl font-garet font-black uppercase tracking-widest text-[13px] active:scale-95 transition-all border border-white/10 ${hasDevices || spotifyPlayback.getDeviceId() ? 'bg-palette-teal text-white' : 'bg-zinc-800 text-zinc-500'}`}>Push to Device</button>
+              
+              {/* RESTORED: Open in Spotify button with crash-safe deep link logic */}
+              <button 
+                onClick={handleOpenInSpotify}
+                className="relative overflow-hidden w-full bg-palette-gold/20 text-palette-gold font-black py-6 rounded-3xl font-garet uppercase tracking-widest text-[13px] active:scale-95 transition-all border border-palette-gold/30 shadow-lg shadow-palette-gold/5"
+              >
+                Open in Spotify
+              </button>
+
               <button onClick={() => setShowPlayOptions(false)} className="w-full py-3 text-zinc-600 font-black uppercase tracking-widest text-[11px] mt-4">Cancel</button>
            </div>
         </div>
