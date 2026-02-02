@@ -25,8 +25,8 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix: Use imported Component directly to resolve this.props visibility and ensure correct typing of this.props.children
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Use React.Component to ensure this.props and this.state are correctly recognized by the TypeScript compiler
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
   constructor(props: ErrorBoundaryProps) {

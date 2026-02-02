@@ -33,7 +33,7 @@ class SpotifyPlaybackService {
         apiLogger.logClick("SDK: Script Ready");
         
         this.player = new window.Spotify.Player({
-          name: 'GetReady (Web)',
+          name: 'GetReady (Local Player)',
           getOAuthToken: (cb: (token: string) => void) => {
             SpotifyAuth.getValidAccessToken().then(t => cb(t || ''));
           },
@@ -43,7 +43,7 @@ class SpotifyPlaybackService {
         this.player.addListener('ready', ({ device_id }: { device_id: string }) => {
           this.deviceId = device_id;
           this.sdkReady = true;
-          apiLogger.logClick(`SDK: Device Connected (${device_id})`);
+          apiLogger.logClick(`SDK: Local Player Ready (${device_id})`);
           resolve();
         });
 
@@ -84,7 +84,7 @@ class SpotifyPlaybackService {
     const devices = await SpotifyApi.getDevices();
     const active = devices.find(d => d.is_active);
     
-    // If no active device but we have a local SDK ID, use that as first fallback
+    // Fallback order: active > local SDK > first available
     const localId = this.deviceId;
     const chosen = active || (localId ? { id: localId } : null) || devices[0];
 
@@ -101,11 +101,14 @@ class SpotifyPlaybackService {
     });
   }
 
-  async playUrisOnDevice(deviceId: string, uris: string[], offsetIndex?: number): Promise<void> {
+  async playUrisOnDevice(deviceId: string, uris: string[], offset?: number | string): Promise<void> {
     const body: any = { uris };
-    if (offsetIndex !== undefined) {
-      body.offset = { position: offsetIndex };
+    if (typeof offset === 'number') {
+      body.offset = { position: offset };
+    } else if (typeof offset === 'string') {
+      body.offset = { uri: offset };
     }
+    
     await SpotifyApi.request(`/me/player/play?device_id=${deviceId}`, {
       method: 'PUT',
       body: JSON.stringify(body)
