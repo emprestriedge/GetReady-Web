@@ -169,7 +169,7 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick, onClose
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <div className="bg-black/25 backdrop-blur-[40px] border border-white/10 rounded-[34px] overflow-hidden flex flex-col shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)] transition-all active:scale-[0.99]">
+      <div className="bg-black/30 backdrop-blur-3xl border border-white/10 rounded-[34px] overflow-hidden flex flex-col shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)] transition-all active:scale-[0.99]">
         <div className="w-full h-[3px] bg-white/5">
           <div 
             className="h-full bg-palette-teal shadow-[0_0_12px_rgba(45,185,177,0.8)] transition-all duration-1000 ease-linear"

@@ -24,12 +24,10 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// FIXED: Using Component directly and providing constructor to ensure props are correctly bound
+// Fixed: Inheriting from 'Component' directly and using class field for state initialization
+// to resolve TypeScript errors where 'state' and 'props' were not correctly inferred.
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+  state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
     const normalized = error instanceof Error ? error : new Error("Unknown Error");
@@ -53,7 +51,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
     
-    // Simplification of children access to avoid previous "props not exist" compiler error
     return this.props.children || null;
   }
 }
@@ -206,7 +203,7 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <InkBackground>
-        <div id="main-content-scroller" className="flex-1 overflow-y-auto w-full relative pt-16 pb-[env(safe-area-inset-bottom)]">
+        <div id="main-content-scroller" className="flex-1 overflow-y-auto w-full relative pt-16 min-h-[100dvh] pb-[env(safe-area-inset-bottom)]">
           {activeTab === 'Home' && (
             <HomeView 
               key={homeKey}
