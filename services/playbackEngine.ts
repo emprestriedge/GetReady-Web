@@ -73,12 +73,10 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
 
       const targetLen = rules.playlistLength || 35;
       
-      // Define a unified mock generation helper that respects cooldown
       const buildMockResult = (pool: Track[], summary: string): RunResult => {
         const filtered = pool.filter(t => !CooldownStore.isRestricted(t.id));
         const tracks = this.shuffleArray(filtered).slice(0, targetLen);
         
-        // Update Cooldown on successful generation
         if (tracks.length > 0) {
           CooldownStore.markUsed(tracks.map(t => t.id));
         }
@@ -115,7 +113,6 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
     const totalTarget = rules.playlistLength || 35;
     apiLogger.logClick(`Engine [BUILD]: Composing ${totalTarget} tracks for ${option.name}.`);
     
-    // STRICT FILTER: Cooldown Rule + Blocks + Playability
     const filter = (t: SpotifyTrack) => 
       !t.is_local && 
       t.is_playable !== false && 
@@ -149,7 +146,6 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
         let warning: string | undefined;
         if (finalTracks.length < totalTarget && tracks.length > 0) {
           const needed = totalTarget - finalTracks.length;
-          // Fallback only if strictly necessary
           const fallback = tracks.filter(t => !finalTracks.find(ft => ft.id === t.id)).slice(0, needed); 
           finalTracks = [...finalTracks, ...fallback];
           warning = `Strict Cooldown limited choices. Supplemented ${needed} tracks from history.`;
@@ -158,7 +154,6 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
         result = this.mapToRunResult(option, finalTracks.slice(0, totalTarget), `Source: ${option.name}`, [], warning);
       }
     } else {
-      // Mixed Recipe Modes
       const scaleFactor = totalTarget / BASE_RECIPE_TOTAL;
       const baseRecipe = { ...(RECIPES[option.id] || RECIPES['chaos_mix']) };
       const recipe: Recipe = {
@@ -226,7 +221,6 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
       result = this.mapToRunResult(option, resultTracks.slice(0, totalTarget), sourceSummary, newTracks, warning);
     }
 
-    // FINAL STEP: Update Cooldown for all generated tracks
     if (result.tracks && result.tracks.length > 0) {
       CooldownStore.markUsed(result.tracks.map(t => t.id));
     }

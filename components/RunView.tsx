@@ -54,14 +54,12 @@ const TrackRow: React.FC<{
     setIsPressed(true);
     isLongPress.current = false;
 
-    // Start Long Press Timer (Success = Heavy)
     timerRef.current = setTimeout(() => {
       isLongPress.current = true;
       onStatusToggle(track);
       Haptics.impactAsync(ImpactFeedbackStyle.Heavy);
     }, LONG_PRESS_DURATION);
 
-    // Double Tap Logic
     const now = Date.now();
     if (now - lastTapTime.current < 300) {
       clearTimeout(timerRef.current);
@@ -77,7 +75,6 @@ const TrackRow: React.FC<{
     if (touchStartX.current === null) return;
     const deltaX = e.touches[0].clientX - touchStartX.current;
     
-    // Cancel long press if user starts scrolling or swiping
     if (Math.abs(deltaX) > 8) {
       clearTimeout(timerRef.current);
       setIsPressed(false);
@@ -93,7 +90,6 @@ const TrackRow: React.FC<{
     clearTimeout(timerRef.current);
     setIsPressed(false);
 
-    // Tap Feedback (Success = Light)
     if (!isLongPress.current && Math.abs(swipeX) < 10) {
       Haptics.impactAsync(ImpactFeedbackStyle.Light);
     }
@@ -253,11 +249,13 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       }
       
       toastService.show("Launching Spotify Mix...", "info");
+      // Standard Web Deep Link
       window.location.assign('spotify:');
       
       setIsQueuePlaying(true);
       onPlayTriggered?.();
     } catch (e) {
+      // Fallback to track deep link if general app launch fails
       const trackId = startTrack.id || startTrack.uri.split(':').pop();
       window.location.assign(`spotify:track:${trackId}`);
     }
