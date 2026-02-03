@@ -22,7 +22,7 @@ export default function InkBackground({ children }: { children?: React.ReactNode
 
   return (
     <div style={{ 
-      minHeight: "100dvh", 
+      height: "100dvh", 
       width: "100%", 
       position: "relative", 
       backgroundColor: "#000", 

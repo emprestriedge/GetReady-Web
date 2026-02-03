@@ -8,11 +8,11 @@ import { spotifyPlayback } from '../services/spotifyPlaybackService';
 import { SpotifyApi } from '../services/spotifyApi';
 import { SpotifyDataService } from '../services/spotifyDataService';
 import { BlockStore } from '../services/blockStore';
-import { ContentIdStore } from '../services/contentIdStore';
 import { apiLogger } from '../services/apiLogger';
 import DevicePickerModal from './DevicePickerModal';
 import { StatusAsterisk } from './HomeView';
 import { toastService } from '../services/toastService';
+import { USE_MOCK_DATA } from '../constants';
 
 interface RunViewProps {
   option: RunOption;
@@ -27,6 +27,7 @@ interface RunViewProps {
 }
 
 type GenStatus = 'IDLE' | 'RUNNING' | 'DONE' | 'ERROR';
+type ActionStage = 'DEFAULT' | 'PLAY_SELECTION' | 'SAVE_SELECTION';
 
 const TrackRow: React.FC<{ 
   track: Track; 
@@ -44,8 +45,6 @@ const TrackRow: React.FC<{
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
-    
-    // Double Tap Detection for high-performance feel
     const now = Date.now();
     if (now - lastTapTime.current < 300) {
       onPlay(track, index);
@@ -107,14 +106,19 @@ const TrackRow: React.FC<{
 
 const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, initialResult, onResultUpdate, onPlayTriggered, isQueueMode }) => {
   const [genStatus, setGenStatus] = useState<GenStatus>(initialResult ? 'DONE' : 'IDLE');
-  const [showSaveOptions, setShowSaveOptions] = useState(false);
+  const [activeStage, setActiveStage] = useState<ActionStage>('DEFAULT');
   const [showDevicePicker, setShowDevicePicker] = useState(false);
   const [isQueuePlaying, setIsQueuePlaying] = useState(isQueueMode || false);
   const [currentPlayingUri, setCurrentPlayingUri] = useState<string | null>(null);
   const [result, setResult] = useState<RunResult | null>(initialResult || null);
   const [error, setError] = useState<string | null>(null);
-  const [playlistName, setPlaylistName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Naming Modal State
+  const [showNamingModal, setShowNamingModal] = useState(false);
+  const [saveDestination, setSaveDestination] = useState<'VAULT' | 'SPOTIFY' | null>(null);
+  const [editablePlaylistName, setEditablePlaylistName] = useState("");
+
   const generationRequestId = useRef(0);
   const engine = useMemo(() => new SpotifyPlaybackEngine(), []);
   const effectiveRules = getEffectiveRules(rules, RuleOverrideStore.getForOption(option.id));
@@ -158,6 +162,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     setGenStatus('RUNNING');
     setResult(null); 
     setIsQueuePlaying(false);
+    setActiveStage('DEFAULT');
     const requestId = ++generationRequestId.current;
     try {
       await new Promise(r => setTimeout(r, 1200));
@@ -179,26 +184,29 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   const handlePlayTrack = async (track: Track, index: number) => {
     if (!result?.tracks) return;
     Haptics.light();
-    
     try {
       const currentUris = result.tracks.map(t => t.uri);
       await SpotifyPlaybackEngine.playTrack(track, currentUris, index);
       setIsQueuePlaying(true); 
       setCurrentPlayingUri(track.uri);
       onPlayTriggered?.();
-    } catch (e: any) {
-      if (e.message === "NO_ACTIVE_DEVICE") {
-        setShowDevicePicker(true);
-      } else {
-        toastService.show(e.message || "Playback failed", "error");
+      if (USE_MOCK_DATA) {
+        toastService.show("Mix sent to virtual device!", "success");
       }
+    } catch (e: any) {
+      if (e.message === "NO_ACTIVE_DEVICE") setShowDevicePicker(true);
+      else toastService.show(e.message || "Playback failed", "error");
     }
   };
 
-  /**
-   * handleOpenSpotify - Directly launches Spotify via deep link.
-   * This "wakes up" the app and starts playback immediately.
-   */
+  const handlePlay = () => {
+    if (result?.tracks && result.tracks.length > 0) {
+      handlePlayTrack(result.tracks[0], 0);
+    } else {
+      toastService.show("No tracks available to play", "warning");
+    }
+  };
+
   const handleOpenSpotify = (track: Track) => {
     if (!track || (!track.uri && !track.id)) {
       toastService.show("Invalid track record", "error");
@@ -208,11 +216,8 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       const safeUri = track.uri && track.uri.startsWith('spotify:track:') 
         ? track.uri 
         : `spotify:track:${track.id || track.uri.split(':').pop()}`;
-      
       toastService.show("Launching Spotify...", "info");
       window.location.assign(safeUri);
-      
-      // Update UI state to show Active Queue instead of Preview
       setIsQueuePlaying(true);
       onPlayTriggered?.();
     } catch (e) {
@@ -253,8 +258,48 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     return mins > 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins} mins`;
   }, [result]);
 
+  // Saving Logic
+  const openNamingModal = (dest: 'VAULT' | 'SPOTIFY') => {
+    Haptics.medium();
+    const dateStr = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+    setEditablePlaylistName(`${option.name} - ${dateStr}`);
+    setSaveDestination(dest);
+    setShowNamingModal(true);
+  };
+
+  const handleExecuteSave = async () => {
+    if (!result || !saveDestination || isSaving) return;
+    Haptics.impact();
+    setIsSaving(true);
+    
+    try {
+      const finalResult = { ...result, playlistName: editablePlaylistName };
+      
+      if (saveDestination === 'VAULT') {
+        onComplete(finalResult);
+        toastService.show("Saved to Vault", "success");
+        setShowNamingModal(false);
+        onClose(); 
+      } else {
+        const user = await SpotifyApi.getMe();
+        const description = `Built via GetReady: ${option.name} | Energy=${rules.calmHype} | Discover=${rules.discoverLevel}`;
+        const playlist = await SpotifyDataService.createPlaylist(user.id, editablePlaylistName, description);
+        if (result.tracks) {
+          await SpotifyDataService.replacePlaylistTracks(playlist.id, result.tracks.map(t => t.uri));
+        }
+        toastService.show("Synced to Spotify!", "success");
+        setShowNamingModal(false);
+        setActiveStage('DEFAULT');
+      }
+    } catch (e: any) {
+      toastService.show(e.message || "Save failed", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-500 overflow-x-hidden w-full max-w-[100vw] text-[#A9E8DF]">
+    <div className="fixed inset-0 z-[400] bg-black/60 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-500 overflow-x-hidden w-full max-w-[100vw] text-[#A9E8DF]">
       <div className="px-6 pb-6 flex items-center justify-between border-b border-white/5 bg-black/30 shrink-0 pt-16">
         <button onClick={() => { Haptics.light(); onClose(); }} className="text-palette-pink text-[14px] font-black uppercase tracking-[0.2em] active:opacity-50 transition-opacity">Back</button>
         <div className="flex flex-col items-center">
@@ -265,7 +310,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         <div className="w-12" />
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-8 pb-48 overflow-x-hidden w-full">
+      <div className="flex-1 overflow-y-auto ios-scroller p-6 flex flex-col gap-8 pb-80 overflow-x-hidden w-full">
         {genStatus === 'RUNNING' ? (
           <div className="h-full flex flex-col items-center justify-center text-center gap-12 animate-in fade-in duration-1000">
              <div className="relative">
@@ -293,10 +338,10 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                 {genStatus === 'DONE' && !isQueuePlaying && (
                   <button 
                     onClick={() => { if (result?.tracks) handleOpenSpotify(result.tracks[0]); }}
-                    className="bg-[#1DB954] text-white px-5 py-2.5 rounded-full font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all shadow-lg shadow-[#1DB954]/30 flex items-center gap-2 border border-white/10"
+                    className="relative overflow-hidden bg-palette-pink/10 text-palette-pink px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-lg shadow-palette-pink/10 flex items-center gap-1.5 border border-palette-pink/30"
                   >
-                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.494 17.306c-.215.353-.674.463-1.027.248-2.857-1.745-6.453-2.14-10.686-1.173-.404.093-.813-.162-.906-.566-.093-.404.162-.813.566-.906 4.63-1.06 8.598-.61 11.785 1.339.353.215.463.674.248 1.027zm1.467-3.264c-.271.44-.847.581-1.287.31-3.268-2.008-8.25-2.592-12.115-1.417-.496.15-1.022-.128-1.173-.623-.15-.496.128-1.022.623-1.173 4.417-1.34 9.907-.678 13.642 1.613.44.271.581.847.31 1.287zm.127-3.413C15.228 8.249 8.845 8.038 5.16 9.157c-.551.167-1.13-.153-1.297-.704-.167-.551.153-1.13.704-1.297 4.227-1.282 11.278-1.037 15.82 1.66.496.295.661.934.366 1.43-.295.496-.934.661-1.43.366z"/></svg>
-                    Play Mix
+                    <svg className="w-3 h-3 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                    <span className="relative z-10">Play Mix</span>
                   </button>
                 )}
               </div>
@@ -313,44 +358,121 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       </div>
 
       {genStatus === 'DONE' && !isQueuePlaying && (
-        <div className="fixed bottom-[56px] left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-[60px] border-t border-white/10 p-6 z-[200]" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
-           <div className="flex flex-col gap-4 max-w-lg mx-auto w-full">
-              <div className="flex gap-4">
-                 {option.type === RunOptionType.MUSIC && (
+        <div className="fixed bottom-[66px] left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-[60px] border-t border-white/10 p-6 z-[450]" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
+           <div className="flex flex-col gap-3.5 max-w-lg mx-auto w-full transition-all duration-300">
+              
+              {activeStage === 'DEFAULT' && (
+                <div className="flex flex-col gap-3.5 animate-in fade-in duration-300">
+                  <div className="flex gap-3.5">
                     <button 
-                      onClick={() => { Haptics.medium(); startRun(); }} 
-                      className="flex-1 bg-white/10 border border-white/10 text-white font-black py-4 rounded-[24px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.2em] text-[12px] flex items-center justify-center gap-2"
+                      onClick={() => { Haptics.medium(); setActiveStage('PLAY_SELECTION'); }}
+                      className="flex-1 bg-[#1DB954] border border-white/10 text-white font-black py-4 rounded-[22px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.2em] text-[11px] flex items-center justify-center gap-2 shadow-lg shadow-[#1DB954]/20"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                      <span>Regen</span>
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                      <span>Play</span>
                     </button>
-                 )}
-                 <button 
-                  onClick={() => { Haptics.medium(); setShowSaveOptions(true); }} 
-                  className="flex-1 bg-white/10 border border-white/10 text-white font-black py-4 rounded-[24px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.2em] text-[12px] flex items-center justify-center gap-2"
-                 >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
-                    <span>Save</span>
-                 </button>
-              </div>
+                    <button 
+                      onClick={() => { Haptics.medium(); setActiveStage('SAVE_SELECTION'); }}
+                      className="flex-1 bg-palette-teal border border-white/10 text-white font-black py-4 rounded-[22px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.2em] text-[11px] flex items-center justify-center gap-2 shadow-lg shadow-palette-teal/20"
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+                      <span>Save</span>
+                    </button>
+                  </div>
+                  <button 
+                    onClick={startRun}
+                    className="w-full relative overflow-hidden bg-palette-pink text-white font-black py-5 rounded-[22px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.25em] text-[12px] flex items-center justify-center gap-3 shadow-lg shadow-palette-pink/20"
+                  >
+                    <div className="absolute top-1 left-2 w-[90%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
+                    <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <span className="relative z-10">Regenerate Mix</span>
+                  </button>
+                </div>
+              )}
 
-              <div className="flex gap-4">
+              {activeStage === 'PLAY_SELECTION' && (
+                <div className="flex flex-col gap-3.5 animate-in slide-in-from-bottom-4 duration-300">
+                  <div className="flex gap-3.5">
+                    <button 
+                      onClick={() => { Haptics.medium(); setShowDevicePicker(true); }}
+                      className="flex-1 bg-palette-teal text-white font-black py-5 rounded-[22px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.2em] text-[11px] shadow-xl border border-white/20 flex flex-col items-center gap-1"
+                    >
+                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                      <span>Send to Device</span>
+                    </button>
+                    <button 
+                      onClick={() => { if (result?.tracks) handleOpenSpotify(result.tracks[0]); }}
+                      className="flex-1 bg-[#1DB954] text-white font-black py-5 rounded-[22px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.2em] text-[11px] shadow-xl border border-white/20 flex flex-col items-center gap-1"
+                    >
+                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.494 17.306c-.215.353-.674.463-1.027.248-2.857-1.745-6.453-2.14-10.686-1.173-.404.093-.813-.162-.906-.566-.093-.404.162-.813.566-.906 4.63-1.06 8.598-.61 11.785 1.339.353.215.463.674.248 1.027zm1.467-3.264c-.271.44-.847.581-1.287.31-3.268-2.008-8.25-2.592-12.115-1.417-.496.15-1.022-.128-1.173-.623-.15-.496.128-1.022.623-1.173 4.417-1.34 9.907-.678 13.642 1.613.44.271.581.847.31 1.287zm.127-3.413C15.228 8.249 8.845 8.038 5.16 9.157c-.551.167-1.13-.153-1.297-.704-.167-.551.153-1.13.704-1.297 4.227-1.282 11.278-1.037 15.82 1.66.496.295.661.934.366 1.43-.295.496-.934.661-1.43.366z"/></svg>
+                      <span>Play in Spotify</span>
+                    </button>
+                  </div>
+                  <button onClick={() => setActiveStage('DEFAULT')} className="text-zinc-600 font-black uppercase tracking-widest text-[10px] py-2">Back to Menu</button>
+                </div>
+              )}
+
+              {activeStage === 'SAVE_SELECTION' && (
+                <div className="flex flex-col gap-3.5 animate-in slide-in-from-bottom-4 duration-300">
+                  <div className="flex gap-3.5">
+                    <button 
+                      onClick={() => openNamingModal('VAULT')}
+                      className="flex-1 bg-palette-teal text-white font-black py-5 rounded-[22px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.2em] text-[11px] shadow-xl border border-white/20 flex flex-col items-center gap-1"
+                    >
+                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 12l10 10 10-10L12 2z"/></svg>
+                      <span>Save to Vault</span>
+                    </button>
+                    <button 
+                      onClick={() => openNamingModal('SPOTIFY')}
+                      className="flex-1 bg-[#1DB954] text-white font-black py-5 rounded-[22px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.2em] text-[11px] shadow-xl border border-white/20 flex flex-col items-center gap-1"
+                    >
+                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.494 17.306c-.215.353-.674.463-1.027.248-2.857-1.745-6.453-2.14-10.686-1.173-.404.093-.813-.162-.906-.566-.093-.404.162-.813.566-.906 4.63-1.06 8.598-.61 11.785 1.339.353.215.463.674.248 1.027zm1.467-3.264c-.271.44-.847.581-1.287.31-3.268-2.008-8.25-2.592-12.115-1.417-.496.15-1.022-.128-1.173-.623-.15-.496.128-1.022.623-1.173 4.417-1.34 9.907-.678 13.642 1.613.44.271.581.847.31 1.287zm.127-3.413C15.228 8.249 8.845 8.038 5.16 9.157c-.551.167-1.13-.153-1.297-.704-.167-.551.153-1.13.704-1.297 4.227-1.282 11.278-1.037 15.82 1.66.496.295.661.934.366 1.43-.295.496-.934.661-1.43.366z"/></svg>
+                      <span>Save to Spotify</span>
+                    </button>
+                  </div>
+                  <button onClick={() => setActiveStage('DEFAULT')} className="text-zinc-600 font-black uppercase tracking-widest text-[10px] py-2">Back to Menu</button>
+                </div>
+              )}
+           </div>
+        </div>
+      )}
+
+      {/* Naming Modal */}
+      {showNamingModal && (
+        <div className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300">
+           <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-md flex flex-col gap-6 shadow-2xl animate-in zoom-in duration-300">
+              <header>
+                 <h2 className="text-4xl font-mango text-[#A9E8DF] leading-none">Name Mix</h2>
+                 <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mt-2">
+                   {saveDestination === 'VAULT' ? 'Offline Vault Storage' : 'Spotify Playlist Sync'}
+                 </p>
+              </header>
+              <div className="flex flex-col gap-2">
+                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">Display Title</label>
+                 <input 
+                   type="text" 
+                   value={editablePlaylistName}
+                   onChange={e => setEditablePlaylistName(e.target.value)}
+                   autoFocus
+                   className="bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-[#D1F2EB] font-garet font-bold outline-none focus:border-palette-pink transition-all"
+                 />
+              </div>
+              <div className="flex flex-col gap-3 mt-2">
                  <button 
-                  onClick={() => { if (result?.tracks) handlePlayTrack(result.tracks[0], 0); }} 
-                  className="relative overflow-hidden flex-1 bg-palette-teal text-white font-black py-5 rounded-[24px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-xl border border-white/20 flex items-center justify-center gap-3"
+                   onClick={handleExecuteSave} 
+                   disabled={isSaving || !editablePlaylistName.trim()} 
+                   className={`w-full relative overflow-hidden text-white font-black py-5 rounded-[24px] transition-all font-garet uppercase tracking-widest text-xs border border-white/15 ${saveDestination === 'SPOTIFY' ? 'bg-[#1DB954] shadow-[#1DB954]/20' : 'bg-palette-pink shadow-palette-pink/20'}`}
                  >
-                    <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
-                    <svg className="w-5 h-5 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
-                    <span className="relative z-10">Send to Device</span>
+                    {isSaving ? (
+                      <div className="flex items-center justify-center gap-2">
+                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                         <span>Saving...</span>
+                      </div>
+                    ) : (
+                      <span className="relative z-10">Confirm & Save</span>
+                    )}
                  </button>
-                 <button 
-                  onClick={() => { if (result?.tracks) handleOpenSpotify(result.tracks[0]); }} 
-                  className="relative overflow-hidden flex-1 bg-[#1DB954] text-white font-black py-5 rounded-[24px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.25em] text-[13px] shadow-xl border border-white/20 flex items-center justify-center gap-3"
-                 >
-                    <div className="absolute top-1.5 left-2.5 w-[85%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
-                    <svg className="w-5 h-5 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.494 17.306c-.215.353-.674.463-1.027.248-2.857-1.745-6.453-2.14-10.686-1.173-.404.093-.813-.162-.906-.566-.093-.404.162-.813.566-.906 4.63-1.06 8.598-.61 11.785 1.339.353.215.463.674.248 1.027zm1.467-3.264c-.271.44-.847.581-1.287.31-3.268-2.008-8.25-2.592-12.115-1.417-.496.15-1.022-.128-1.173-.623-.15-.496.128-1.022.623-1.173 4.417-1.34 9.907-.678 13.642 1.613.44.271.581.847.31 1.287zm.127-3.413C15.228 8.249 8.845 8.038 5.16 9.157c-.551.167-1.13-.153-1.297-.704-.167-.551.153-1.13.704-1.297 4.227-1.282 11.278-1.037 15.82 1.66.496.295.661.934.366 1.43-.295.496-.934.661-1.43.366z"/></svg>
-                    <span className="relative z-10">Play in Spotify</span>
-                 </button>
+                 <button onClick={() => setShowNamingModal(false)} className="w-full py-2 text-zinc-600 font-black uppercase tracking-widest text-[10px] active:opacity-50">Cancel</button>
               </div>
            </div>
         </div>

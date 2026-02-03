@@ -203,7 +203,7 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <InkBackground>
-        <div id="main-content-scroller" className="flex-1 overflow-y-auto w-full relative pt-16 min-h-[100dvh] pb-[env(safe-area-inset-bottom)]">
+        <div id="main-content-scroller" className="flex-1 overflow-y-auto ios-scroller w-full relative pt-16 pb-[env(safe-area-inset-bottom, 80px)]">
           {activeTab === 'Home' && (
             <HomeView 
               key={homeKey}
