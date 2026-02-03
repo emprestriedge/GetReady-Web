@@ -3,7 +3,7 @@ import { RunOption, RuleSettings, RunResult, RunOptionType, SpotifyDevice, Track
 import { RuleOverrideStore } from '../services/ruleOverrideStore';
 import { getEffectiveRules } from '../utils/ruleUtils';
 import { SpotifyPlaybackEngine } from '../services/playbackEngine';
-import { Haptics } from '../services/haptics';
+import { Haptics, ImpactFeedbackStyle } from '../services/haptics';
 import { spotifyPlayback } from '../services/spotifyPlaybackService';
 import { SpotifyApi } from '../services/spotifyApi';
 import { SpotifyDataService } from '../services/spotifyDataService';
@@ -39,16 +39,34 @@ const TrackRow: React.FC<{
 }> = ({ track, isActive, index, onPlay, onStatusToggle, onBlock }) => {
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
+  
   const touchStartX = useRef<number | null>(null);
   const lastTapTime = useRef<number>(0);
+  const timerRef = useRef<any>(null);
+  const isLongPress = useRef(false);
+  
   const SWIPE_LIMIT = -100;
+  const LONG_PRESS_DURATION = 300;
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    setIsPressed(true);
+    isLongPress.current = false;
+
+    // Start Long Press Timer (Success = Heavy)
+    timerRef.current = setTimeout(() => {
+      isLongPress.current = true;
+      onStatusToggle(track);
+      Haptics.impactAsync(ImpactFeedbackStyle.Heavy);
+    }, LONG_PRESS_DURATION);
+
+    // Double Tap Logic
     const now = Date.now();
     if (now - lastTapTime.current < 300) {
+      clearTimeout(timerRef.current);
       onPlay(track, index);
-      Haptics.impact();
+      Haptics.impactAsync(ImpactFeedbackStyle.Heavy);
       lastTapTime.current = 0; 
       return;
     }
@@ -58,6 +76,13 @@ const TrackRow: React.FC<{
   const handleTouchMove = (e: React.TouchEvent) => {
     if (touchStartX.current === null) return;
     const deltaX = e.touches[0].clientX - touchStartX.current;
+    
+    // Cancel long press if user starts scrolling or swiping
+    if (Math.abs(deltaX) > 8) {
+      clearTimeout(timerRef.current);
+      setIsPressed(false);
+    }
+
     if (deltaX < 0) {
       setIsSwiping(true);
       setSwipeX(deltaX);
@@ -65,10 +90,19 @@ const TrackRow: React.FC<{
   };
 
   const handleTouchEnd = () => {
-    if (swipeX < SWIPE_LIMIT) {
-      Haptics.impact();
+    clearTimeout(timerRef.current);
+    setIsPressed(false);
+
+    // Tap Feedback (Success = Light)
+    if (!isLongPress.current && Math.abs(swipeX) < 10) {
+      Haptics.impactAsync(ImpactFeedbackStyle.Light);
+    }
+
+    if (!isLongPress.current && swipeX < SWIPE_LIMIT) {
+      Haptics.impactAsync(ImpactFeedbackStyle.Medium);
       onBlock(track);
     }
+    
     setSwipeX(0);
     setIsSwiping(false);
     touchStartX.current = null;
@@ -80,11 +114,15 @@ const TrackRow: React.FC<{
         <span className="text-white font-black text-[12px] uppercase tracking-[0.4em]" style={{ opacity: Math.min(1, Math.abs(swipeX) / 80) }}>Block</span>
       </div>
       <button 
-        onDoubleClick={() => onPlay(track, index)}
+        onContextMenu={(e) => e.preventDefault()}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={{ touchAction: 'pan-y', transform: `translateX(${swipeX}px)`, transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.23, 1, 0.32, 1)' }}
+        style={{ 
+          touchAction: 'pan-y', 
+          transform: `translateX(${swipeX}px) ${isPressed ? 'scale(0.97)' : 'scale(1)'}`, 
+          transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.23, 1, 0.32, 1)' 
+        }}
         className={`w-full flex items-center gap-4 p-5 transition-all group text-left select-none relative z-10 border-b border-[#6D28D9]/20 ${isActive ? 'bg-palette-teal/15 border-palette-teal/40 shadow-[inset_0_0_40px_rgba(45,185,177,0.15)]' : 'bg-[#0a0a0a]/85 backdrop-blur-3xl hover:bg-white/5 active:bg-palette-teal/5'}`}
       >
         <div className="relative shrink-0 flex items-center justify-center min-w-[24px]">
@@ -114,7 +152,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Naming Modal State
   const [showNamingModal, setShowNamingModal] = useState(false);
   const [saveDestination, setSaveDestination] = useState<'VAULT' | 'SPOTIFY' | null>(null);
   const [editablePlaylistName, setEditablePlaylistName] = useState("");
@@ -157,7 +194,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   };
 
   const startRun = async () => {
-    Haptics.impact();
+    Haptics.impactAsync(ImpactFeedbackStyle.Medium);
     setError(null);
     setGenStatus('RUNNING');
     setResult(null); 
@@ -183,45 +220,46 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
 
   const handlePlayTrack = async (track: Track, index: number) => {
     if (!result?.tracks) return;
-    Haptics.light();
+    Haptics.impactAsync(ImpactFeedbackStyle.Light);
     try {
       const currentUris = result.tracks.map(t => t.uri);
       await SpotifyPlaybackEngine.playTrack(track, currentUris, index);
       setIsQueuePlaying(true); 
       setCurrentPlayingUri(track.uri);
       onPlayTriggered?.();
-      if (USE_MOCK_DATA) {
-        toastService.show("Mix sent to virtual device!", "success");
-      }
     } catch (e: any) {
       if (e.message === "NO_ACTIVE_DEVICE") setShowDevicePicker(true);
       else toastService.show(e.message || "Playback failed", "error");
     }
   };
 
-  const handlePlay = () => {
-    if (result?.tracks && result.tracks.length > 0) {
-      handlePlayTrack(result.tracks[0], 0);
-    } else {
-      toastService.show("No tracks available to play", "warning");
-    }
-  };
-
-  const handleOpenSpotify = (track: Track) => {
-    if (!track || (!track.uri && !track.id)) {
-      toastService.show("Invalid track record", "error");
+  const handlePlayInSpotify = async (startIndex: number = 0) => {
+    if (!result?.tracks || result.tracks.length === 0) {
+      toastService.show("No tracks to play", "warning");
       return;
     }
+    
+    Haptics.impactAsync(ImpactFeedbackStyle.Medium);
+    const uris = result.tracks.map(t => t.uri);
+    const startTrack = result.tracks[startIndex];
+
     try {
-      const safeUri = track.uri && track.uri.startsWith('spotify:track:') 
-        ? track.uri 
-        : `spotify:track:${track.id || track.uri.split(':').pop()}`;
-      toastService.show("Launching Spotify...", "info");
-      window.location.assign(safeUri);
+      const devices = await SpotifyApi.getDevices();
+      const active = devices.find(d => d.is_active) || devices[0];
+      
+      if (active) {
+        try { await spotifyPlayback.setShuffle(false, active.id); } catch(e) {}
+        await spotifyPlayback.playUrisOnDevice(active.id, uris, startIndex);
+      }
+      
+      toastService.show("Launching Spotify Mix...", "info");
+      window.location.assign('spotify:');
+      
       setIsQueuePlaying(true);
       onPlayTriggered?.();
     } catch (e) {
-      apiLogger.logError("Deep link failed");
+      const trackId = startTrack.id || startTrack.uri.split(':').pop();
+      window.location.assign(`spotify:track:${trackId}`);
     }
   };
 
@@ -243,7 +281,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   };
 
   const handleBlockTrack = (track: Track) => {
-    Haptics.impact();
+    Haptics.impactAsync(ImpactFeedbackStyle.Medium);
     BlockStore.addBlocked(track);
     setResult(prev => {
       const updated = prev ? { ...prev, tracks: prev.tracks?.filter(t => t.uri !== track.uri) } : null;
@@ -258,9 +296,8 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     return mins > 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins} mins`;
   }, [result]);
 
-  // Saving Logic
   const openNamingModal = (dest: 'VAULT' | 'SPOTIFY') => {
-    Haptics.medium();
+    Haptics.impactAsync(ImpactFeedbackStyle.Medium);
     const dateStr = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
     setEditablePlaylistName(`${option.name} - ${dateStr}`);
     setSaveDestination(dest);
@@ -269,7 +306,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
 
   const handleExecuteSave = async () => {
     if (!result || !saveDestination || isSaving) return;
-    Haptics.impact();
+    Haptics.impactAsync(ImpactFeedbackStyle.Medium);
     setIsSaving(true);
     
     try {
@@ -301,7 +338,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   return (
     <div className="fixed inset-0 z-[400] bg-black/60 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-500 overflow-x-hidden w-full max-w-[100vw] text-[#A9E8DF]">
       <div className="px-6 pb-6 flex items-center justify-between border-b border-white/5 bg-black/30 shrink-0 pt-16">
-        <button onClick={() => { Haptics.light(); onClose(); }} className="text-palette-pink text-[14px] font-black uppercase tracking-[0.2em] active:opacity-50 transition-opacity">Back</button>
+        <button onClick={() => { Haptics.impactAsync(ImpactFeedbackStyle.Light); onClose(); }} className="text-palette-pink text-[14px] font-black uppercase tracking-[0.2em] active:opacity-50 transition-opacity">Back</button>
         <div className="flex flex-col items-center">
           <span className="font-black text-[10px] uppercase tracking-[0.5em] text-zinc-600 leading-none">
             {isQueuePlaying ? 'Active Queue' : 'Preview Mix'}
@@ -337,10 +374,10 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                 </div>
                 {genStatus === 'DONE' && !isQueuePlaying && (
                   <button 
-                    onClick={() => { if (result?.tracks) handleOpenSpotify(result.tracks[0]); }}
-                    className="relative overflow-hidden bg-palette-pink/10 text-palette-pink px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-lg shadow-palette-pink/10 flex items-center gap-1.5 border border-palette-pink/30"
+                    onClick={() => handlePlayInSpotify(0)}
+                    className="relative overflow-hidden bg-palette-pink/15 text-palette-pink px-6 py-3 rounded-full font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all shadow-xl shadow-palette-pink/20 flex items-center gap-2 border border-palette-pink/40 scale-105"
                   >
-                    <svg className="w-3 h-3 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                    <svg className="w-4 h-4 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
                     <span className="relative z-10">Play Mix</span>
                   </button>
                 )}
@@ -365,14 +402,14 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                 <div className="flex flex-col gap-3.5 animate-in fade-in duration-300">
                   <div className="flex gap-3.5">
                     <button 
-                      onClick={() => { Haptics.medium(); setActiveStage('PLAY_SELECTION'); }}
+                      onClick={() => { Haptics.impactAsync(ImpactFeedbackStyle.Medium); setActiveStage('PLAY_SELECTION'); }}
                       className="flex-1 bg-[#1DB954] border border-white/10 text-white font-black py-4 rounded-[22px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.2em] text-[11px] flex items-center justify-center gap-2 shadow-lg shadow-[#1DB954]/20"
                     >
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                       <span>Play</span>
                     </button>
                     <button 
-                      onClick={() => { Haptics.medium(); setActiveStage('SAVE_SELECTION'); }}
+                      onClick={() => { Haptics.impactAsync(ImpactFeedbackStyle.Medium); setActiveStage('SAVE_SELECTION'); }}
                       className="flex-1 bg-palette-teal border border-white/10 text-white font-black py-4 rounded-[22px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.2em] text-[11px] flex items-center justify-center gap-2 shadow-lg shadow-palette-teal/20"
                     >
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
@@ -394,21 +431,21 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                 <div className="flex flex-col gap-3.5 animate-in slide-in-from-bottom-4 duration-300">
                   <div className="flex gap-3.5">
                     <button 
-                      onClick={() => { Haptics.medium(); setShowDevicePicker(true); }}
+                      onClick={() => { Haptics.impactAsync(ImpactFeedbackStyle.Medium); setShowDevicePicker(true); }}
                       className="flex-1 bg-palette-teal text-white font-black py-5 rounded-[22px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.2em] text-[11px] shadow-xl border border-white/20 flex flex-col items-center gap-1"
                     >
                       <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
                       <span>Send to Device</span>
                     </button>
                     <button 
-                      onClick={() => { if (result?.tracks) handleOpenSpotify(result.tracks[0]); }}
+                      onClick={() => handlePlayInSpotify(0)}
                       className="flex-1 bg-[#1DB954] text-white font-black py-5 rounded-[22px] active:scale-[0.97] transition-all font-garet uppercase tracking-[0.2em] text-[11px] shadow-xl border border-white/20 flex flex-col items-center gap-1"
                     >
                       <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.494 17.306c-.215.353-.674.463-1.027.248-2.857-1.745-6.453-2.14-10.686-1.173-.404.093-.813-.162-.906-.566-.093-.404.162-.813.566-.906 4.63-1.06 8.598-.61 11.785 1.339.353.215.463.674.248 1.027zm1.467-3.264c-.271.44-.847.581-1.287.31-3.268-2.008-8.25-2.592-12.115-1.417-.496.15-1.022-.128-1.173-.623-.15-.496.128-1.022.623-1.173 4.417-1.34 9.907-.678 13.642 1.613.44.271.581.847.31 1.287zm.127-3.413C15.228 8.249 8.845 8.038 5.16 9.157c-.551.167-1.13-.153-1.297-.704-.167-.551.153-1.13.704-1.297 4.227-1.282 11.278-1.037 15.82 1.66.496.295.661.934.366 1.43-.295.496-.934.661-1.43.366z"/></svg>
                       <span>Play in Spotify</span>
                     </button>
                   </div>
-                  <button onClick={() => setActiveStage('DEFAULT')} className="text-zinc-600 font-black uppercase tracking-widest text-[10px] py-2">Back to Menu</button>
+                  <button onClick={() => { Haptics.impactAsync(ImpactFeedbackStyle.Light); setActiveStage('DEFAULT'); }} className="text-zinc-600 font-black uppercase tracking-widest text-[10px] py-2">Back to Menu</button>
                 </div>
               )}
 
@@ -430,14 +467,13 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                       <span>Save to Spotify</span>
                     </button>
                   </div>
-                  <button onClick={() => setActiveStage('DEFAULT')} className="text-zinc-600 font-black uppercase tracking-widest text-[10px] py-2">Back to Menu</button>
+                  <button onClick={() => { Haptics.impactAsync(ImpactFeedbackStyle.Light); setActiveStage('DEFAULT'); }} className="text-zinc-600 font-black uppercase tracking-widest text-[10px] py-2">Back to Menu</button>
                 </div>
               )}
            </div>
         </div>
       )}
 
-      {/* Naming Modal */}
       {showNamingModal && (
         <div className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300">
            <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-md flex flex-col gap-6 shadow-2xl animate-in zoom-in duration-300">
@@ -472,7 +508,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                       <span className="relative z-10">Confirm & Save</span>
                     )}
                  </button>
-                 <button onClick={() => setShowNamingModal(false)} className="w-full py-2 text-zinc-600 font-black uppercase tracking-widest text-[10px] active:opacity-50">Cancel</button>
+                 <button onClick={() => { Haptics.impactAsync(ImpactFeedbackStyle.Light); setShowNamingModal(false); }} className="w-full py-2 text-zinc-600 font-black uppercase tracking-widest text-[10px] active:opacity-50">Cancel</button>
               </div>
            </div>
         </div>
