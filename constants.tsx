@@ -1,7 +1,6 @@
-
 import { RunOption, RunOptionType, RuleSettings, Track, RunRecord } from './types';
 
-export const USE_MOCK_DATA = true;
+export const USE_MOCK_DATA = false;
 
 export const SMART_MIX_MODES: RunOption[] = [
   { id: 'chaos_mix', name: 'Chaos', type: RunOptionType.MUSIC, description: 'High energy randomness: Liked songs, Shazam hits, and a sprinkle of A7X.' },
