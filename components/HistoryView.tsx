@@ -11,6 +11,8 @@ import DevicePickerModal from './DevicePickerModal';
 
 interface HistoryViewProps {
   history: RunRecord[];
+  onPreviewStarted?: () => void;
+  onPlayTriggered?: () => void;
 }
 
 const VaultRecordRow: React.FC<{ 
@@ -121,7 +123,7 @@ const VaultRecordRow: React.FC<{
   );
 };
 
-const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
+const HistoryView: React.FC<HistoryViewProps> = ({ history, onPreviewStarted, onPlayTriggered }) => {
   const [viewingRecord, setViewingRecord] = useState<RunRecord | null>(null);
   const [showDevicePicker, setShowDevicePicker] = useState<RunRecord | null>(null);
   const [showSpotifyPrompt, setShowSpotifyPrompt] = useState<RunRecord | null>(null);
@@ -130,6 +132,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
 
   const handleOpenDetail = (record: RunRecord) => {
     Haptics.light();
+    onPreviewStarted?.(); // The fix: Hide global player when previewing from Vault
     setViewingRecord(record);
   };
 
@@ -165,6 +168,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
         await spotifyPlayback.playUrisOnDevice(activeDeviceId, uris);
         Haptics.success();
         toastService.show("Playback started", "success");
+        onPlayTriggered?.(); // Ensure global player strip appears
       }
     } catch (e: any) {
       Haptics.error();
@@ -218,6 +222,8 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
         onClose={() => setViewingRecord(null)}
         onComplete={() => {}}
         initialResult={viewingRecord.result}
+        onPreviewStarted={onPreviewStarted}
+        onPlayTriggered={onPlayTriggered}
       />
     );
   }

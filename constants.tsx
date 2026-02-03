@@ -1,17 +1,18 @@
 import { RunOption, RunOptionType, RuleSettings, Track, RunRecord } from './types';
 
+// Disabled Demo Mode for deployment
 export const USE_MOCK_DATA = false;
 
 export const SMART_MIX_MODES: RunOption[] = [
-  { id: 'chaos_mix', name: 'Chaos', type: RunOptionType.MUSIC, description: 'High energy randomness: Liked songs, Shazam hits, and a sprinkle of A7X.' },
-  { id: 'zen_mix', name: 'Zen', type: RunOptionType.MUSIC, description: 'Deep calm: Mostly 90s acoustic alternative with soft Avenged Sevenfold cuts.' },
-  { id: 'focus_mix', name: 'Focus', type: RunOptionType.MUSIC, description: 'Steady flow: A balanced blend of acoustic tracks, liked favorites, and melodic A7X.' },
-  { id: 'lightening_mix', name: 'LighteningMix', type: RunOptionType.MUSIC, description: 'Maximum hype: Prioritizing 90s/00s Rap and heavy Avenged Sevenfold.' },
+  { id: 'zen_mix', name: 'Zen', type: RunOptionType.MUSIC, description: 'A calming selection of acoustic and light tracks.' },
+  { id: 'focus_mix', name: 'Focus', type: RunOptionType.MUSIC, description: 'Deep concentration with minimal vocals.' },
+  { id: 'chaos_mix', name: 'Chaos', type: RunOptionType.MUSIC, description: 'High energy, high discovery, unpredictable.' },
+  { id: 'lightening_mix', name: 'Flash', type: RunOptionType.MUSIC, description: 'Fast-paced, hard-hitting tracks.' },
 ];
 
 export const MUSIC_BUTTONS: RunOption[] = [
-  { id: 'liked_songs', name: 'LikedSongs', type: RunOptionType.MUSIC, description: 'Pulling from your saved favorites.' },
-  { id: 'shazam_tracks', name: 'ShazamList', type: RunOptionType.MUSIC, description: 'Direct sync from your Shazam playlist.', idKey: 'shazamPlaylistId' },
+  { id: 'liked_songs', name: 'Liked Songs', type: RunOptionType.MUSIC, description: 'Your personal library highlights.' },
+  { id: 'shazam_tracks', name: 'Shazam History', type: RunOptionType.MUSIC, description: 'Tracks found while out and about.', idKey: 'shazamPlaylistId' },
   { id: 'acoustic_rock', name: '90sAltRock', type: RunOptionType.MUSIC, description: 'Pure 90s grunge and alternative acoustic cuts.', idKey: 'acoustic90sPlaylistId' },
   { id: 'rap_hiphop', name: 'OGRap&HipHop', type: RunOptionType.MUSIC, description: 'Curated 90s/00s station built from your library playlists.', idKey: 'rapSources' },
   { id: 'a7x_deep', name: 'A7xRadio', type: RunOptionType.MUSIC, description: 'A7X and similar heavy hitters with a focus on deep cuts.', idKey: 'a7xArtistId' },
@@ -44,7 +45,6 @@ export const DEFAULT_RULES: RuleSettings = {
   customPodcastOptions: PODCAST_OPTIONS,
 };
 
-// FIXED: Added required 'id' property to each mock track to resolve interface compatibility errors
 export const MOCK_TRACKS: Track[] = [
   { id: '1', uri: 'spotify:track:1', title: 'Midnight City - M83 [Extended Remix] 2024 Remaster', artist: 'M83', album: 'Hurry Up, We\'re Dreaming', imageUrl: 'https://i.scdn.co/image/ab67616d0000b2737604586e92b34a1795f573c0', durationMs: 243000, status: 'liked' },
   { id: '2', uri: 'spotify:track:2', title: 'Through the Fire and Flames - DragonForce [Maximum Overdrive Edition]', artist: 'DragonForce', album: 'Inhuman Rampage', imageUrl: 'https://i.scdn.co/image/ab67616d0000b273468962634e0689b910e5446f', durationMs: 441000, status: 'none' },

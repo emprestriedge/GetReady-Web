@@ -23,11 +23,13 @@ interface RunViewProps {
   initialResult?: RunResult;
   onResultUpdate?: (result: RunResult) => void;
   onPlayTriggered?: () => void;
+  onPreviewStarted?: () => void;
   isQueueMode?: boolean;
 }
 
 type GenStatus = 'IDLE' | 'RUNNING' | 'DONE' | 'ERROR';
 type ActionStage = 'DEFAULT' | 'PLAY_SELECTION' | 'SAVE_SELECTION';
+type ViewMode = 'PREVIEW' | 'QUEUE';
 
 const TrackRow: React.FC<{ 
   track: Track; 
@@ -36,7 +38,8 @@ const TrackRow: React.FC<{
   onPlay: (t: Track, i: number) => void; 
   onStatusToggle: (t: Track) => void; 
   onBlock: (t: Track) => void;
-}> = ({ track, isActive, index, onPlay, onStatusToggle, onBlock }) => {
+  onHaptic: () => void;
+}> = ({ track, isActive, index, onPlay, onStatusToggle, onBlock, onHaptic }) => {
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
@@ -57,7 +60,7 @@ const TrackRow: React.FC<{
     timerRef.current = setTimeout(() => {
       isLongPress.current = true;
       onStatusToggle(track);
-      Haptics.impactAsync(ImpactFeedbackStyle.Heavy);
+      onHaptic(); // Surgical Haptic Hack trigger
     }, LONG_PRESS_DURATION);
 
     const now = Date.now();
@@ -138,11 +141,11 @@ const TrackRow: React.FC<{
   );
 };
 
-const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, initialResult, onResultUpdate, onPlayTriggered, isQueueMode }) => {
+const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, initialResult, onResultUpdate, onPlayTriggered, onPreviewStarted, isQueueMode }) => {
   const [genStatus, setGenStatus] = useState<GenStatus>(initialResult ? 'DONE' : 'IDLE');
   const [activeStage, setActiveStage] = useState<ActionStage>('DEFAULT');
+  const [viewMode, setViewMode] = useState<ViewMode>(isQueueMode ? 'QUEUE' : 'PREVIEW');
   const [showDevicePicker, setShowDevicePicker] = useState(false);
-  const [isQueuePlaying, setIsQueuePlaying] = useState(isQueueMode || false);
   const [currentPlayingUri, setCurrentPlayingUri] = useState<string | null>(null);
   const [result, setResult] = useState<RunResult | null>(initialResult || null);
   const [error, setError] = useState<string | null>(null);
@@ -156,7 +159,18 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   const engine = useMemo(() => new SpotifyPlaybackEngine(), []);
   const effectiveRules = getEffectiveRules(rules, RuleOverrideStore.getForOption(option.id));
 
+  // Surgical Haptic Hack helper
+  const fireHaptic = () => {
+    const el = document.getElementById('local-haptic-trigger');
+    if (el) (el as HTMLInputElement).click();
+  };
+
   useEffect(() => {
+    // Mount Rule: Hide player if we start in PREVIEW mode
+    if (!isQueueMode) {
+      onPreviewStarted?.();
+    }
+
     if (initialResult) handleHistoryBackfill();
     if (!initialResult && genStatus === 'IDLE') startRun();
     
@@ -172,6 +186,12 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     pollPlayback();
     return () => clearInterval(interval);
   }, [option, rules, initialResult]);
+
+  // Sync internal viewMode with prop if it changes externally (e.g. from App.tsx via restore)
+  useEffect(() => {
+    if (isQueueMode) setViewMode('QUEUE');
+    else setViewMode('PREVIEW');
+  }, [isQueueMode]);
 
   const handleHistoryBackfill = async () => {
     if (!initialResult?.tracks) return;
@@ -194,7 +214,8 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     setError(null);
     setGenStatus('RUNNING');
     setResult(null); 
-    setIsQueuePlaying(false);
+    setViewMode('PREVIEW');
+    onPreviewStarted?.(); // The Preview Rule: Hide Player
     setActiveStage('DEFAULT');
     const requestId = ++generationRequestId.current;
     try {
@@ -220,7 +241,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     try {
       const currentUris = result.tracks.map(t => t.uri);
       await SpotifyPlaybackEngine.playTrack(track, currentUris, index);
-      setIsQueuePlaying(true); 
+      setViewMode('QUEUE');
       setCurrentPlayingUri(track.uri);
       onPlayTriggered?.();
     } catch (e: any) {
@@ -249,13 +270,11 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       }
       
       toastService.show("Launching Spotify Mix...", "info");
-      // Standard Web Deep Link
       window.location.assign('spotify:');
       
-      setIsQueuePlaying(true);
+      setViewMode('QUEUE');
       onPlayTriggered?.();
     } catch (e) {
-      // Fallback to track deep link if general app launch fails
       const trackId = startTrack.id || startTrack.uri.split(':').pop();
       window.location.assign(`spotify:track:${trackId}`);
     }
@@ -314,7 +333,8 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         onComplete(finalResult);
         toastService.show("Saved to Vault", "success");
         setShowNamingModal(false);
-        onClose(); 
+        setViewMode('QUEUE');
+        onPlayTriggered?.(); // Show Player in parent
       } else {
         const user = await SpotifyApi.getMe();
         const description = `Built via GetReady: ${option.name} | Energy=${rules.calmHype} | Discover=${rules.discoverLevel}`;
@@ -324,6 +344,8 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         }
         toastService.show("Synced to Spotify!", "success");
         setShowNamingModal(false);
+        setViewMode('QUEUE');
+        onPlayTriggered?.(); // Show Player in parent
         setActiveStage('DEFAULT');
       }
     } catch (e: any) {
@@ -334,12 +356,12 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 bottom-[65px] z-[400] bg-black/40 backdrop-blur-2xl flex flex-col animate-in slide-in-from-right duration-500 overflow-x-hidden w-full max-w-[100vw] text-[#A9E8DF]">
+    <div className="fixed top-0 left-0 right-0 bottom-[65px] z-[700] bg-black/40 backdrop-blur-2xl flex flex-col animate-in slide-in-from-right duration-500 overflow-x-hidden w-full max-w-[100vw] text-[#A9E8DF]">
       <div className="px-6 pb-6 flex items-center justify-between border-b border-white/5 bg-black/30 shrink-0 pt-16">
         <button onClick={() => { Haptics.impactAsync(ImpactFeedbackStyle.Light); onClose(); }} className="text-palette-pink text-[14px] font-black uppercase tracking-[0.2em] active:opacity-50 transition-opacity">Back</button>
         <div className="flex flex-col items-center">
           <span className="font-black text-[10px] uppercase tracking-[0.5em] text-zinc-600 leading-none">
-            {isQueuePlaying ? 'Active Queue' : 'Preview Mix'}
+            {viewMode === 'QUEUE' ? 'Active Queue' : 'Preview Mix'}
           </span>
         </div>
         <div className="w-12" />
@@ -374,7 +396,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                     <span className="text-[#8B5CF6] text-[10px] font-black uppercase tracking-[0.15em] leading-none">{totalDurationStr}</span>
                   </div>
                 </div>
-                {genStatus === 'DONE' && !isQueuePlaying && (
+                {genStatus === 'DONE' && viewMode === 'PREVIEW' && (
                   <button 
                     onClick={() => handlePlayInSpotify(0)}
                     className="flex-1 relative overflow-hidden bg-palette-pink/15 text-palette-pink px-4 py-2.5 rounded-[20px] active:scale-95 transition-all shadow-xl shadow-palette-pink/20 flex items-center justify-center gap-3 border border-palette-pink/40"
@@ -390,7 +412,16 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
             <div className="bg-[#0a0a0a]/60 backdrop-blur-3xl rounded-[32px] overflow-hidden border border-white/10 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.9)] stagger-entry stagger-2">
               <div className="divide-y divide-[#6D28D9]/20">
                 {result?.tracks?.map((track, i) => (
-                  <TrackRow key={track.uri + i} track={track} isActive={currentPlayingUri === track.uri} index={i} onPlay={handlePlayTrack} onStatusToggle={handleToggleStatus} onBlock={handleBlockTrack} />
+                  <TrackRow 
+                    key={track.uri + i} 
+                    track={track} 
+                    isActive={currentPlayingUri === track.uri} 
+                    index={i} 
+                    onPlay={handlePlayTrack} 
+                    onStatusToggle={handleToggleStatus} 
+                    onBlock={handleBlockTrack}
+                    onHaptic={fireHaptic} 
+                  />
                 ))}
               </div>
             </div>
@@ -398,8 +429,8 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         )}
       </div>
 
-      {genStatus === 'DONE' && !isQueuePlaying && (
-        <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-[60px] border-t border-white/10 p-6 z-[450]" style={{ bottom: '65px', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
+      {genStatus === 'DONE' && viewMode === 'PREVIEW' && (
+        <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-[60px] border-t border-white/10 p-6 z-[800]" style={{ bottom: '65px', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
            <div className="flex flex-col gap-3.5 max-w-lg mx-auto w-full transition-all duration-300">
               
               {activeStage === 'DEFAULT' && (
@@ -518,7 +549,13 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         </div>
       )}
 
-      {showDevicePicker && <DevicePickerModal onSelect={async (deviceId) => { setShowDevicePicker(false); if (result?.tracks) { await spotifyPlayback.ensureActiveDevice(deviceId); await SpotifyPlaybackEngine.playTrack(result.tracks[0], result.tracks.map(t => t.uri), 0); setIsQueuePlaying(true); onPlayTriggered?.(); } }} onClose={() => setShowDevicePicker(false)} />}
+      {showDevicePicker && <DevicePickerModal onSelect={async (deviceId) => { setShowDevicePicker(false); if (result?.tracks) { await spotifyPlayback.ensureActiveDevice(deviceId); await SpotifyPlaybackEngine.playTrack(result.tracks[0], result.tracks.map(t => t.uri), 0); setViewMode('QUEUE'); onPlayTriggered?.(); } }} onClose={() => setShowDevicePicker(false)} />}
+      
+      <input 
+        type="checkbox" 
+        id="local-haptic-trigger" 
+        style={{ opacity: 0, position: 'absolute', pointerEvents: 'none', zIndex: -1 }} 
+      />
     </div>
   );
 };

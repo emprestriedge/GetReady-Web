@@ -164,11 +164,14 @@ const App: React.FC = () => {
   const handleTabClick = (tab: TabType) => {
     triggerHaptic();
     Haptics.light();
-    // Persist overlay only if we're clicking the same tab, otherwise clear overlay to show the new tab content
+    
+    // Explicitly dismiss overlay on any tab click to fix "dead buttons"
+    setShowRunOverlay(false);
+    
     if (tab !== activeTab) {
-      setShowRunOverlay(false);
       setActiveTab(tab);
     } else {
+      // Refresh logic if already on tab
       if (tab === 'Home') setHomeKey(prev => prev + 1);
       if (tab === 'Settings') setSettingsKey(prev => prev + 1);
     }
@@ -196,8 +199,6 @@ const App: React.FC = () => {
     localStorage.setItem('spotify_buddy_history', JSON.stringify(updatedHistory));
     
     setActiveRunResult(result);
-    setShowRunOverlay(false);
-    setActiveTab('Vault');
   };
 
   const handleRestoreRun = () => {
@@ -222,7 +223,17 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'Vault' && (
-            <HistoryView history={history} />
+            <HistoryView 
+              history={history} 
+              onPreviewStarted={() => {
+                setIsPlayerVisible(false);
+                setIsRunViewQueueMode(false);
+              }}
+              onPlayTriggered={() => {
+                setIsPlayerVisible(true);
+                setIsRunViewQueueMode(true);
+              }}
+            />
           )}
           {activeTab === 'Settings' && (
             <SettingsView 
@@ -250,6 +261,10 @@ const App: React.FC = () => {
                setIsPlayerVisible(true);
                setIsRunViewQueueMode(true); 
             }}
+            onPreviewStarted={() => {
+              setIsPlayerVisible(false);
+              setIsRunViewQueueMode(false);
+            }}
             isQueueMode={isRunViewQueueMode}
           />
         )}
@@ -257,7 +272,10 @@ const App: React.FC = () => {
         {isPlayerVisible && (
           <NowPlayingStrip 
             onStripClick={handleRestoreRun} 
-            onClose={() => setIsPlayerVisible(false)}
+            onClose={() => {
+                setIsPlayerVisible(false);
+                setIsRunViewQueueMode(false);
+            }}
           />
         )}
         <ToastOverlay />
@@ -285,10 +303,6 @@ const App: React.FC = () => {
           })}
         </nav>
 
-        {/* 
-          iOS 18 Switch Haptic Trick 
-          Toggling a checkbox with the 'switch' attribute triggers native system haptics in PWA mode on iOS 18.
-        */}
         <input 
           type="checkbox" 
           id="haptic-trigger" 

@@ -1,7 +1,7 @@
 import { SpotifySource } from '../types';
 import { configStore } from './configStore';
-// Use top-level import instead of require to fix compiler error
 import { ContentIdStore } from './contentIdStore';
+import { USE_MOCK_DATA } from '../constants';
 
 export interface CatalogConfig {
   shazamId: string | null;
@@ -20,6 +20,9 @@ export const catalogStore = {
   },
 
   isReady: (idKey?: string): boolean => {
+    // In demo mode, we want all UI options enabled regardless of catalog linking
+    if (USE_MOCK_DATA) return true;
+    
     if (!idKey) return true;
     const config = configStore.getConfig();
     const catalog = config.catalog;
@@ -35,7 +38,6 @@ export const catalogStore = {
     // Check podcast slots
     const pod = config.podcasts.find(p => p.idKey === idKey);
     if (pod) {
-      // Use the imported ContentIdStore instead of require to avoid "Cannot find name 'require'"
       return !!ContentIdStore.get(idKey);
     }
 

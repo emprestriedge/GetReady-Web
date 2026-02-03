@@ -159,7 +159,7 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick, onClose
     <div 
       className={`fixed left-4 right-4 z-[550] cursor-pointer touch-none select-none ${!isSwiping ? 'transition-all duration-300' : ''}`}
       style={{ 
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 92px)',
+        bottom: 'calc(env(safe-area-inset-top, 0px) + 92px)',
         transform: `translateX(${dragX}px)`,
         // Fade out opacity as the user swipes
         opacity: Math.max(0, 1 - Math.abs(dragX) / (DISMISS_THRESHOLD * 2.5))
@@ -169,7 +169,7 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick, onClose
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <div className="bg-black/30 backdrop-blur-3xl border-t border-white/10 rounded-[34px] overflow-hidden flex flex-col shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)] transition-all active:scale-[0.99]">
+      <div className="bg-black/30 backdrop-blur-3xl border-t border-purple-500/30 rounded-[34px] overflow-hidden flex flex-col shadow-[0_0_25px_rgba(109,40,217,0.35),0_32px_64px_-16px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)] transition-all active:scale-[0.99]">
         <div className="w-full h-[3px] bg-white/5">
           <div 
             className="h-full bg-palette-teal shadow-[0_0_12px_rgba(45,185,177,0.8)] transition-all duration-1000 ease-linear"

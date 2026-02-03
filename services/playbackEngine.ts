@@ -74,7 +74,8 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
       const targetLen = rules.playlistLength || 35;
       
       const buildMockResult = (pool: Track[], summary: string): RunResult => {
-        const filtered = pool.filter(t => !CooldownStore.isRestricted(t.id));
+        // Fix: Skip cooldown restriction check in Mock/Demo mode to allow repetitive testing
+        const filtered = pool.filter(t => !CooldownStore.isRestricted(t.id) || USE_MOCK_DATA);
         const tracks = this.shuffleArray(filtered).slice(0, targetLen);
         
         if (tracks.length > 0) {
@@ -117,7 +118,7 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
       !t.is_local && 
       t.is_playable !== false && 
       !BlockStore.isBlocked(t.id) && 
-      !CooldownStore.isRestricted(t.id);
+      (!CooldownStore.isRestricted(t.id) || USE_MOCK_DATA); // Fix: Skip cooldown restriction check in Mock/Demo mode
 
     const config = configStore.getConfig();
     const catalog = config.catalog;
