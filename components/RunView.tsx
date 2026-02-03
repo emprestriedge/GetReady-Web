@@ -336,7 +336,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   };
 
   return (
-    <div className="fixed inset-0 z-[400] bg-black/60 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-500 overflow-x-hidden w-full max-w-[100vw] text-[#A9E8DF]">
+    <div className="fixed top-0 left-0 right-0 bottom-[65px] z-[400] bg-black/40 backdrop-blur-2xl flex flex-col animate-in slide-in-from-right duration-500 overflow-x-hidden w-full max-w-[100vw] text-[#A9E8DF]">
       <div className="px-6 pb-6 flex items-center justify-between border-b border-white/5 bg-black/30 shrink-0 pt-16">
         <button onClick={() => { Haptics.impactAsync(ImpactFeedbackStyle.Light); onClose(); }} className="text-palette-pink text-[14px] font-black uppercase tracking-[0.2em] active:opacity-50 transition-opacity">Back</button>
         <div className="flex flex-col items-center">
@@ -347,7 +347,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         <div className="w-12" />
       </div>
 
-      <div className="flex-1 overflow-y-auto ios-scroller p-6 flex flex-col gap-8 pb-80 overflow-x-hidden w-full">
+      <div className="flex-1 overflow-y-auto ios-scroller p-6 flex flex-col gap-8 pb-96 overflow-x-hidden w-full">
         {genStatus === 'RUNNING' ? (
           <div className="h-full flex flex-col items-center justify-center text-center gap-12 animate-in fade-in duration-1000">
              <div className="relative">
@@ -363,22 +363,28 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
           </div>
         ) : (
           <div className="flex flex-col gap-6">
-             <header className="flex flex-col gap-1 px-4 stagger-entry stagger-1">
-              <div className="w-full overflow-hidden whitespace-nowrap relative py-4 mb-2">
+             <header className="flex flex-col gap-4 px-4 stagger-entry stagger-1">
+              <div className="w-full overflow-hidden whitespace-nowrap relative py-2">
                 <h2 className="leading-none font-mango header-ombre tracking-tighter drop-shadow-2xl text-7xl animate-[marquee_15s_linear_infinite] pb-2">{option.name}</h2>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="bg-palette-gold/10 border border-palette-gold/30 px-3 py-1 rounded-xl"><span className="text-palette-gold text-[10px] font-black uppercase tracking-[0.15em]">{result?.tracks?.length || 0} Tracks</span></div>
-                  <div className="bg-[#6D28D9]/10 border border-[#6D28D9]/30 px-3 py-1 rounded-xl"><span className="text-[#8B5CF6] text-[10px] font-black uppercase tracking-[0.15em]">{totalDurationStr}</span></div>
+              <div className="flex items-center gap-3 w-full">
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="bg-palette-gold/10 border border-palette-gold/30 px-3 py-1.5 rounded-xl whitespace-nowrap">
+                    <span className="text-palette-gold text-[10px] font-black uppercase tracking-[0.15em] leading-none">{result?.tracks?.length || 0} Tracks</span>
+                  </div>
+                  <div className="bg-[#6D28D9]/10 border border-[#6D28D9]/30 px-3 py-1.5 rounded-xl whitespace-nowrap">
+                    <span className="text-[#8B5CF6] text-[10px] font-black uppercase tracking-[0.15em] leading-none">{totalDurationStr}</span>
+                  </div>
                 </div>
                 {genStatus === 'DONE' && !isQueuePlaying && (
                   <button 
                     onClick={() => handlePlayInSpotify(0)}
-                    className="relative overflow-hidden bg-palette-pink/15 text-palette-pink px-6 py-3 rounded-full font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all shadow-xl shadow-palette-pink/20 flex items-center gap-2 border border-palette-pink/40 scale-105"
+                    className="flex-1 relative overflow-hidden bg-palette-pink/15 text-palette-pink px-4 py-2.5 rounded-[20px] active:scale-95 transition-all shadow-xl shadow-palette-pink/20 flex items-center justify-center gap-3 border border-palette-pink/40"
                   >
-                    <svg className="w-4 h-4 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
-                    <span className="relative z-10">Play Mix</span>
+                    <svg className="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                    <span className="font-black text-[11px] uppercase tracking-wider leading-[1.1] text-left">
+                      Play<br/>Mix
+                    </span>
                   </button>
                 )}
               </div>
@@ -395,7 +401,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       </div>
 
       {genStatus === 'DONE' && !isQueuePlaying && (
-        <div className="fixed bottom-[66px] left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-[60px] border-t border-white/10 p-6 z-[450]" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
+        <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-[60px] border-t border-white/10 p-6 z-[450]" style={{ bottom: '65px', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
            <div className="flex flex-col gap-3.5 max-w-lg mx-auto w-full transition-all duration-300">
               
               {activeStage === 'DEFAULT' && (
@@ -445,7 +451,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                       <span>Play in Spotify</span>
                     </button>
                   </div>
-                  <button onClick={() => { Haptics.impactAsync(ImpactFeedbackStyle.Light); setActiveStage('DEFAULT'); }} className="text-zinc-600 font-black uppercase tracking-widest text-[10px] py-2">Back to Menu</button>
+                  <button onClick={() => setActiveStage('DEFAULT')} className="text-zinc-600 font-black uppercase tracking-widest text-[10px] py-2">Back to Menu</button>
                 </div>
               )}
 

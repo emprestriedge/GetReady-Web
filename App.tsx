@@ -24,8 +24,6 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fixed: Inheriting from 'Component' directly and using class field for state initialization
-// to resolve TypeScript errors where 'state' and 'props' were not correctly inferred.
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false, error: null };
 
@@ -95,11 +93,18 @@ const App: React.FC = () => {
   const [activeRunResult, setActiveRunResult] = useState<RunResult | null>(null);
   const [showRunOverlay, setShowRunOverlay] = useState(false);
   const [authStatus, setAuthStatus] = useState<string>('idle');
-  
-  // Bug Fix: Player Visibility State
   const [isPlayerVisible, setIsPlayerVisible] = useState(false);
-  // Bug Fix: Renamed setter to fix SyntaxError: Identifier 'setIsPlayerVisible' has already been declared
   const [isRunViewQueueMode, setIsRunViewQueueMode] = useState(false);
+
+  /**
+   * triggerHaptic - Helper to trigger the iOS 18 switch haptic trick.
+   */
+  const triggerHaptic = () => {
+    const trigger = document.getElementById('haptic-trigger') as HTMLInputElement;
+    if (trigger) {
+      trigger.click();
+    }
+  };
 
   useEffect(() => {
     const unsub = configStore.subscribe(() => {
@@ -157,25 +162,28 @@ const App: React.FC = () => {
   }, []);
 
   const handleTabClick = (tab: TabType) => {
+    triggerHaptic();
     Haptics.light();
-    setShowRunOverlay(false);
-
-    if (tab === activeTab) {
+    // Persist overlay only if we're clicking the same tab, otherwise clear overlay to show the new tab content
+    if (tab !== activeTab) {
+      setShowRunOverlay(false);
+      setActiveTab(tab);
+    } else {
       if (tab === 'Home') setHomeKey(prev => prev + 1);
       if (tab === 'Settings') setSettingsKey(prev => prev + 1);
-    } else {
-      setActiveTab(tab);
     }
   };
 
   const handleStartRun = (option: RunOption) => {
-    setIsRunViewQueueMode(false); // Entering from Home = New Mix Mode
+    triggerHaptic();
+    setIsRunViewQueueMode(false); 
     setActiveRunOption(option);
     setActiveRunResult(null); 
     setShowRunOverlay(true);
   };
 
   const handleRunComplete = (result: RunResult) => {
+    triggerHaptic();
     const newRecord: RunRecord = {
       id: Math.random().toString(36).substring(2, 9),
       timestamp: new Date().toLocaleString(),
@@ -194,8 +202,9 @@ const App: React.FC = () => {
 
   const handleRestoreRun = () => {
     if (activeRunOption) {
+      triggerHaptic();
       Haptics.medium();
-      setIsRunViewQueueMode(true); // Entering from Player Strip = Active Queue Mode
+      setIsRunViewQueueMode(true); 
       setShowRunOverlay(true);
     }
   };
@@ -239,7 +248,7 @@ const App: React.FC = () => {
             onResultUpdate={setActiveRunResult}
             onPlayTriggered={() => {
                setIsPlayerVisible(true);
-               setIsRunViewQueueMode(true); // Once playing, we are in queue mode
+               setIsRunViewQueueMode(true); 
             }}
             isQueueMode={isRunViewQueueMode}
           />
@@ -254,7 +263,7 @@ const App: React.FC = () => {
         <ToastOverlay />
         <DemoModeIndicator />
 
-        <nav className="fixed bottom-0 left-0 right-0 bg-black/40 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center px-6 z-[300] h-[65px] pb-[env(safe-area-inset-bottom)]">
+        <nav className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center px-6 z-[600] h-[65px] pb-[env(safe-area-inset-bottom)]">
           {(['Home', 'Vault', 'Settings'] as TabType[]).map((tab) => {
             const isActive = activeTab === tab;
             return (
@@ -266,7 +275,7 @@ const App: React.FC = () => {
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isActive ? 'bg-palette-pink text-white shadow-lg shadow-palette-pink/30' : 'text-zinc-400'}`}>
                   {tab === 'Home' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>}
                   {tab === 'Vault' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 12l10 10 10-10L12 2z"/></svg>}
-                  {tab === 'Settings' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>}
+                  {tab === 'Settings' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>}
                 </div>
                 <span className={`text-[8px] font-black uppercase tracking-widest ${isActive ? 'text-palette-pink' : 'text-zinc-600'}`}>
                   {tab === 'Vault' ? 'Vault' : tab}
@@ -275,6 +284,17 @@ const App: React.FC = () => {
             );
           })}
         </nav>
+
+        {/* 
+          iOS 18 Switch Haptic Trick 
+          Toggling a checkbox with the 'switch' attribute triggers native system haptics in PWA mode on iOS 18.
+        */}
+        <input 
+          type="checkbox" 
+          id="haptic-trigger" 
+          {...({ switch: '' } as any)} 
+          style={{ display: 'none', position: 'absolute', pointerEvents: 'none' }} 
+        />
       </InkBackground>
     </ErrorBoundary>
   );

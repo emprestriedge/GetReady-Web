@@ -2,7 +2,7 @@ import { RunOption, RuleSettings, RunResult, Track, RunOptionType, SpotifyTrack,
 import { SpotifyDataService } from './spotifyDataService';
 import { configStore } from './configStore';
 import { BlockStore } from './blockStore';
-import { ResourceResolver } from './resourceResolver';
+import { CooldownStore } from './cooldownStore';
 import { apiLogger } from './apiLogger';
 import { spotifyPlayback } from './spotifyPlaybackService';
 import { SpotifyApi } from './spotifyApi';
@@ -30,12 +30,6 @@ const RECIPES: Record<string, Recipe> = {
 };
 
 export class SpotifyPlaybackEngine implements PlaybackEngine {
-  private async getHistoryIds(optionId: string): Promise<Set<string>> {
-    const key = `run_history_ids_${optionId}`;
-    const saved = localStorage.getItem(key);
-    return saved ? new Set(JSON.parse(saved).flat()) : new Set();
-  }
-
   private isLatinOnly(text: string): boolean {
     return !/[^\u0000-\u024F]/.test(text);
   }
@@ -79,16 +73,29 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
 
       const targetLen = rules.playlistLength || 35;
       
+      // Define a unified mock generation helper that respects cooldown
+      const buildMockResult = (pool: Track[], summary: string): RunResult => {
+        const filtered = pool.filter(t => !CooldownStore.isRestricted(t.id));
+        const tracks = this.shuffleArray(filtered).slice(0, targetLen);
+        
+        // Update Cooldown on successful generation
+        if (tracks.length > 0) {
+          CooldownStore.markUsed(tracks.map(t => t.id));
+        }
+
+        return {
+          runType: RunOptionType.MUSIC,
+          optionName: option.name,
+          createdAt: new Date().toISOString(),
+          playlistName: `${option.name} • ${new Date().toLocaleDateString()}`,
+          tracks: tracks.map(t => ({ ...t, id: t.uri.split(':').pop() || '' })),
+          sourceSummary: summary,
+          debugSummary: "Mock Mode Active"
+        };
+      };
+
       if (option.id === 'rap_hiphop') {
-          return {
-            runType: RunOptionType.MUSIC,
-            optionName: option.name,
-            createdAt: new Date().toISOString(),
-            playlistName: `${option.name} • ${new Date().toLocaleDateString()}`,
-            tracks: this.shuffleArray([...MOCK_TRACKS]).slice(0, targetLen).map(t => ({ ...t, id: t.uri.split(':').pop() || '' })),
-            sourceSummary: "Balanced Mock Build (6 Sources)",
-            debugSummary: "Mock Mode Active"
-          };
+          return buildMockResult([...MOCK_TRACKS], "Balanced Mock Build (6 Sources)");
       }
 
       if (option.id === 'a7x_deep') {
@@ -97,34 +104,10 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
           { id: 'a7x2', uri: 'spotify:track:a7x2', title: 'Hail to the King', artist: 'Avenged Sevenfold', album: 'Hail to the King', imageUrl: 'https://i.scdn.co/image/ab67616d0000b273292723707e77a1e0b5711681', durationMs: 305000, status: 'none' },
           { id: 'a7x3', uri: 'spotify:track:a7x3', title: 'Nightmare', artist: 'Avenged Sevenfold', album: 'Nightmare', imageUrl: 'https://i.scdn.co/image/ab67616d0000b27303c73336465355644788339b', durationMs: 374000, status: 'none' },
         ];
-        const similarMocks: Track[] = [
-          { id: 'soad1', uri: 'spotify:track:soad1', title: 'Chop Suey!', artist: 'System of a Down', album: 'Toxicity', imageUrl: 'https://i.scdn.co/image/ab67616d0000b2736798031d6837090856002f5e', durationMs: 210000, status: 'none' },
-          { id: 'korn1', uri: 'spotify:track:korn1', title: 'Freak on a Leash', artist: 'Korn', album: 'Follow the Leader', imageUrl: 'https://i.scdn.co/image/ab67616d0000b2737604586e92b34a1795f573c0', durationMs: 255000, status: 'none' },
-          { id: 'shine1', uri: 'spotify:track:shine1', title: 'Sound of Madness', artist: 'Shinedown', album: 'The Sound of Madness', imageUrl: 'https://i.scdn.co/image/ab67616d0000b2737604586e92b34a1795f573c0', durationMs: 230000, status: 'none' },
-          { id: 'bb1', uri: 'spotify:track:bb1', title: 'The Diary of Jane', artist: 'Breaking Benjamin', album: 'Phobia', imageUrl: 'https://i.scdn.co/image/ab67616d0000b2737604586e92b34a1795f573c0', durationMs: 200000, status: 'none' },
-        ];
-        
-        const combined = this.shuffleArray([...a7xMocks, ...similarMocks]);
-        return {
-          runType: RunOptionType.MUSIC,
-          optionName: option.name,
-          createdAt: new Date().toISOString(),
-          playlistName: `${option.name} • ${new Date().toLocaleDateString()}`,
-          tracks: combined.slice(0, targetLen),
-          sourceSummary: "Mock Mix: A7X + Similar Bands",
-          debugSummary: "Mock Mode Active"
-        };
+        return buildMockResult([...a7xMocks, ...MOCK_TRACKS], "Mock Mix: A7X + Similar Bands");
       }
 
-      return {
-        runType: RunOptionType.MUSIC,
-        optionName: option.name,
-        createdAt: new Date().toISOString(),
-        playlistName: `${option.name} • ${new Date().toLocaleDateString()}`,
-        tracks: this.shuffleArray([...MOCK_TRACKS]).slice(0, targetLen).map(t => ({ ...t, id: t.uri.split(':').pop() || '' })),
-        sourceSummary: `Demo Build: Acoustic 4 • A7X 2 • Shazam 2 • Liked 4`,
-        debugSummary: "Mock Mode Active"
-      };
+      return buildMockResult([...MOCK_TRACKS], `Demo Build: Acoustic 4 • A7X 2 • Shazam 2 • Liked 4`);
     }
 
     if (option.type === RunOptionType.PODCAST) return this.generatePodcastResult(option);
@@ -132,106 +115,123 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
     const totalTarget = rules.playlistLength || 35;
     apiLogger.logClick(`Engine [BUILD]: Composing ${totalTarget} tracks for ${option.name}.`);
     
-    const historyIds = await this.getHistoryIds(option.id);
-    const filter = (t: SpotifyTrack) => !t.is_local && t.is_playable !== false && !BlockStore.isBlocked(t.id) && !historyIds.has(t.id);
+    // STRICT FILTER: Cooldown Rule + Blocks + Playability
+    const filter = (t: SpotifyTrack) => 
+      !t.is_local && 
+      t.is_playable !== false && 
+      !BlockStore.isBlocked(t.id) && 
+      !CooldownStore.isRestricted(t.id);
 
     const config = configStore.getConfig();
     const catalog = config.catalog;
 
+    let result: RunResult;
+
     if (['liked_songs', 'shazam_tracks', 'acoustic_rock', 'rap_hiphop', 'a7x_deep'].includes(option.id)) {
-      if (option.id === 'rap_hiphop') return this.generateRapRadioResult(option, rules, historyIds);
-      if (option.id === 'a7x_deep') return this.generateA7XRadioResult(option, rules, historyIds);
+      if (option.id === 'rap_hiphop') {
+        result = await this.generateRapRadioResult(option, rules, filter);
+      } else if (option.id === 'a7x_deep') {
+        result = await this.generateA7XRadioResult(option, rules, filter);
+      } else {
+        let tracks: SpotifyTrack[] = [];
+        if (option.id === 'liked_songs') {
+          tracks = await SpotifyDataService.getLikedTracks(totalTarget * 5); 
+        } else if (option.id === 'shazam_tracks') {
+          tracks = catalog.shazamId ? await SpotifyDataService.getPlaylistTracks(catalog.shazamId, Math.max(150, totalTarget * 3)) : [];
+        } else if (option.id === 'acoustic_rock') {
+          tracks = catalog.acoustic90sId ? await SpotifyDataService.getPlaylistTracks(catalog.acoustic90sId, Math.max(150, totalTarget * 3)) : [];
+        }
 
-      let tracks: SpotifyTrack[] = [];
-      if (option.id === 'liked_songs') {
-        tracks = await SpotifyDataService.getLikedTracks(totalTarget * 5); 
-      } else if (option.id === 'shazam_tracks') {
-        tracks = catalog.shazamId ? await SpotifyDataService.getPlaylistTracks(catalog.shazamId, Math.max(150, totalTarget * 3)) : [];
-      } else if (option.id === 'acoustic_rock') {
-        tracks = catalog.acoustic90sId ? await SpotifyDataService.getPlaylistTracks(catalog.acoustic90sId, Math.max(150, totalTarget * 3)) : [];
+        const filteredTracks = tracks.filter(filter);
+        const shuffledTracks = this.shuffleArray(filteredTracks);
+        let finalTracks = shuffledTracks.slice(0, totalTarget);
+        
+        let warning: string | undefined;
+        if (finalTracks.length < totalTarget && tracks.length > 0) {
+          const needed = totalTarget - finalTracks.length;
+          // Fallback only if strictly necessary
+          const fallback = tracks.filter(t => !finalTracks.find(ft => ft.id === t.id)).slice(0, needed); 
+          finalTracks = [...finalTracks, ...fallback];
+          warning = `Strict Cooldown limited choices. Supplemented ${needed} tracks from history.`;
+        }
+
+        result = this.mapToRunResult(option, finalTracks.slice(0, totalTarget), `Source: ${option.name}`, [], warning);
+      }
+    } else {
+      // Mixed Recipe Modes
+      const scaleFactor = totalTarget / BASE_RECIPE_TOTAL;
+      const baseRecipe = { ...(RECIPES[option.id] || RECIPES['chaos_mix']) };
+      const recipe: Recipe = {
+        acoustic: Math.round(baseRecipe.acoustic * scaleFactor),
+        a7x: Math.round(baseRecipe.a7x * scaleFactor),
+        liked: Math.round(baseRecipe.liked * scaleFactor),
+        shazam: Math.round(baseRecipe.shazam * scaleFactor),
+        rap: Math.round(baseRecipe.rap * scaleFactor),
+      };
+
+      if (rules.calmHype <= 0.33) {
+        const shift = Math.round(6 * scaleFactor);
+        recipe.acoustic += shift;
+        if (recipe.rap >= shift) recipe.rap -= shift; else if (recipe.shazam >= shift) recipe.shazam -= shift;
+      } else if (rules.calmHype >= 0.67) {
+        const shift = Math.round(6 * scaleFactor);
+        recipe.acoustic = Math.max(0, recipe.acoustic - shift);
+        if (option.id === 'lightening_mix' || option.id === 'chaos_mix') recipe.rap += shift; else recipe.shazam += shift;
       }
 
-      const filteredTracks = tracks.filter(filter);
-      const shuffledTracks = this.shuffleArray(filteredTracks);
-      let finalTracks = shuffledTracks.slice(0, totalTarget);
-      
+      const newCount = Math.round(totalTarget * rules.discoverLevel);
+      const [likedPool, shazamPool, acousticPool, rapPool, a7xPool] = await Promise.all([
+        SpotifyDataService.getLikedTracks(Math.max(150, totalTarget * 2)),
+        catalog.shazamId ? SpotifyDataService.getPlaylistTracks(catalog.shazamId, 100).catch(() => []) : Promise.resolve([]),
+        catalog.acoustic90sId ? SpotifyDataService.getPlaylistTracks(catalog.acoustic90sId, 100).catch(() => []) : Promise.resolve([]),
+        this.fetchStandardRapPool(),
+        catalog.a7xArtistId ? (rules.a7xMode === 'DeepCuts' ? SpotifyDataService.getDeepCuts(catalog.a7xArtistId, 100).then(r => r.tracks) : SpotifyDataService.getArtistTopTracks(catalog.a7xArtistId)) : Promise.resolve([])
+      ]).then(pools => pools.map(p => p.filter(filter)));
+
+      let newTracks: SpotifyTrack[] = [];
+      if (newCount > 0) {
+        const seedTracksPool = [...likedPool, ...shazamPool].sort(() => Math.random() - 0.5);
+        const seedTracks = seedTracksPool.slice(0, 3).map(s => s.id);
+        const seedArtists = seedTracksPool.slice(0, 2).map(s => s.artists[0].id);
+        if (seedTracks.length > 0 || seedArtists.length > 0) {
+          newTracks = (await SpotifyDataService.getRecommendations(seedArtists, seedTracks, newCount + 20)).filter(filter).slice(0, newCount);
+        }
+      }
+
+      const take = (pool: SpotifyTrack[], n: number) => this.shuffleArray(pool).slice(0, n);
+      const selection = { acoustic: take(acousticPool, recipe.acoustic), a7x: take(a7xPool, recipe.a7x), shazam: take(shazamPool, recipe.shazam), liked: take(likedPool, recipe.liked), rap: take(rapPool, recipe.rap), new: newTracks };
+
+      const resultTracks: SpotifyTrack[] = [];
+      const sourceKeys = ['acoustic', 'a7x', 'shazam', 'liked', 'rap', 'new'] as const;
+      while (resultTracks.length < totalTarget) {
+        let addedAny = false;
+        for (const key of sourceKeys) {
+          const t = selection[key].shift();
+          if (t && !resultTracks.find(rt => rt.id === t.id)) { resultTracks.push(t); addedAny = true; }
+          if (resultTracks.length >= totalTarget) break;
+        }
+        if (!addedAny) break;
+      }
+
       let warning: string | undefined;
-      
-      if (finalTracks.length < totalTarget) {
-        const needed = totalTarget - finalTracks.length;
-        const fallback = tracks.slice(0, needed); 
-        finalTracks = [...finalTracks, ...fallback];
-        warning = `Source limit reached. Filled ${needed} tracks via history fallback.`;
+      if (resultTracks.length < totalTarget) {
+        const needed = totalTarget - resultTracks.length;
+        const combinedFallback = this.shuffleArray([...likedPool, ...shazamPool, ...acousticPool, ...rapPool]);
+        const uniqueFallback = combinedFallback.filter(t => !resultTracks.find(rt => rt.id === t.id));
+        resultTracks.push(...uniqueFallback.slice(0, needed));
+        warning = `Mixed Source limit via Cooldown. Added ${needed} fallback tracks.`;
       }
 
-      return this.mapToRunResult(option, finalTracks.slice(0, totalTarget), `Source: ${option.name}`, [], warning);
+      const sourceSummary = `Acoustic ${recipe.acoustic} • A7X ${recipe.a7x} • Shazam ${recipe.shazam} • Liked ${recipe.liked} • Rap ${recipe.rap} • New ${newTracks.length}`;
+      result = this.mapToRunResult(option, resultTracks.slice(0, totalTarget), sourceSummary, newTracks, warning);
     }
 
-    const scaleFactor = totalTarget / BASE_RECIPE_TOTAL;
-    const baseRecipe = { ...(RECIPES[option.id] || RECIPES['chaos_mix']) };
-    const recipe: Recipe = {
-      acoustic: Math.round(baseRecipe.acoustic * scaleFactor),
-      a7x: Math.round(baseRecipe.a7x * scaleFactor),
-      liked: Math.round(baseRecipe.liked * scaleFactor),
-      shazam: Math.round(baseRecipe.shazam * scaleFactor),
-      rap: Math.round(baseRecipe.rap * scaleFactor),
-    };
-
-    if (rules.calmHype <= 0.33) {
-      const shift = Math.round(6 * scaleFactor);
-      recipe.acoustic += shift;
-      if (recipe.rap >= shift) recipe.rap -= shift; else if (recipe.shazam >= shift) recipe.shazam -= shift;
-    } else if (rules.calmHype >= 0.67) {
-      const shift = Math.round(6 * scaleFactor);
-      recipe.acoustic = Math.max(0, recipe.acoustic - shift);
-      if (option.id === 'lightening_mix' || option.id === 'chaos_mix') recipe.rap += shift; else recipe.shazam += shift;
+    // FINAL STEP: Update Cooldown for all generated tracks
+    if (result.tracks && result.tracks.length > 0) {
+      CooldownStore.markUsed(result.tracks.map(t => t.id));
     }
 
-    const newCount = Math.round(totalTarget * rules.discoverLevel);
-    const [likedPool, shazamPool, acousticPool, rapPool, a7xPool] = await Promise.all([
-      SpotifyDataService.getLikedTracks(Math.max(150, totalTarget * 2)),
-      catalog.shazamId ? SpotifyDataService.getPlaylistTracks(catalog.shazamId, 100).catch(() => []) : Promise.resolve([]),
-      catalog.acoustic90sId ? SpotifyDataService.getPlaylistTracks(catalog.acoustic90sId, 100).catch(() => []) : Promise.resolve([]),
-      this.fetchStandardRapPool(),
-      catalog.a7xArtistId ? (rules.a7xMode === 'DeepCuts' ? SpotifyDataService.getDeepCuts(catalog.a7xArtistId, 100).then(r => r.tracks) : SpotifyDataService.getArtistTopTracks(catalog.a7xArtistId)) : Promise.resolve([])
-    ]).then(pools => pools.map(p => p.filter(filter)));
-
-    let newTracks: SpotifyTrack[] = [];
-    if (newCount > 0) {
-      const seedTracksPool = [...likedPool, ...shazamPool].sort(() => Math.random() - 0.5);
-      const seedTracks = seedTracksPool.slice(0, 3).map(s => s.id);
-      const seedArtists = seedTracksPool.slice(0, 2).map(s => s.artists[0].id);
-      if (seedTracks.length > 0 || seedArtists.length > 0) {
-        newTracks = (await SpotifyDataService.getRecommendations(seedArtists, seedTracks, newCount + 20)).filter(filter).slice(0, newCount);
-      }
-    }
-
-    const take = (pool: SpotifyTrack[], n: number) => this.shuffleArray(pool).slice(0, n);
-    const selection = { acoustic: take(acousticPool, recipe.acoustic), a7x: take(a7xPool, recipe.a7x), shazam: take(shazamPool, recipe.shazam), liked: take(likedPool, recipe.liked), rap: take(rapPool, recipe.rap), new: newTracks };
-
-    const resultTracks: SpotifyTrack[] = [];
-    const sourceKeys = ['acoustic', 'a7x', 'shazam', 'liked', 'rap', 'new'] as const;
-    while (resultTracks.length < totalTarget) {
-      let addedAny = false;
-      for (const key of sourceKeys) {
-        const t = selection[key].shift();
-        if (t && !resultTracks.find(rt => rt.id === t.id)) { resultTracks.push(t); addedAny = true; }
-        if (resultTracks.length >= totalTarget) break;
-      }
-      if (!addedAny) break;
-    }
-
-    let warning: string | undefined;
-    if (resultTracks.length < totalTarget) {
-      const needed = totalTarget - resultTracks.length;
-      const combinedFallback = this.shuffleArray([...likedPool, ...shazamPool, ...acousticPool, ...rapPool]);
-      const uniqueFallback = combinedFallback.filter(t => !resultTracks.find(rt => rt.id === t.id));
-      resultTracks.push(...uniqueFallback.slice(0, needed));
-      warning = `Mixed Source limit. Added ${needed} fallback tracks.`;
-    }
-
-    const sourceSummary = `Acoustic ${recipe.acoustic} • A7X ${recipe.a7x} • Shazam ${recipe.shazam} • Liked ${recipe.liked} • Rap ${recipe.rap} • New ${newTracks.length}`;
-    return this.mapToRunResult(option, resultTracks.slice(0, totalTarget), sourceSummary, newTracks, warning);
+    return result;
   }
 
   private mapToRunResult(option: RunOption, spotifyTracks: SpotifyTrack[], summary: string, newTracksPool: SpotifyTrack[] = [], warning?: string): RunResult {
@@ -264,7 +264,7 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
     return pools.flat();
   }
 
-  private async generateRapRadioResult(option: RunOption, rules: RuleSettings, historyIds: Set<string>): Promise<RunResult> {
+  private async generateRapRadioResult(option: RunOption, rules: RuleSettings, filter: (t: SpotifyTrack) => boolean): Promise<RunResult> {
     const totalTarget = rules.playlistLength || 35;
     const catalog = configStore.getConfig().catalog;
     const sources = Object.values(catalog.rapSources || {}).filter(s => s !== null) as any[];
@@ -283,7 +283,7 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
         }
 
         return rawTracks.filter(t => {
-          if (BlockStore.isBlocked(t.id) || historyIds.has(t.id)) return false;
+          if (!filter(t)) return false;
           if (!this.isLatinOnly(t.name) || !this.isLatinOnly(t.artists[0].name)) return false;
           const year = parseInt(t.album.release_date?.split('-')[0] || "");
           return !isNaN(year) && year >= 1990 && year <= 2009;
@@ -323,7 +323,7 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
       const fallbackPool = this.shuffleArray(sourcePools.flat());
       const extra = fallbackPool.filter(t => !resultTracks.find(rt => rt.id === t.id)).slice(0, needed);
       resultTracks.push(...extra);
-      warning = `Limited balanced Rap sources. Filled ${extra.length} slots via duplicate fallback.`;
+      warning = `Limited balanced Rap sources via Cooldown. Filled ${extra.length} slots via duplicate fallback.`;
     }
 
     const finalShuffled = this.shuffleArray(resultTracks);
@@ -337,7 +337,7 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
     );
   }
 
-  private async generateA7XRadioResult(option: RunOption, rules: RuleSettings, historyIds: Set<string>): Promise<RunResult> {
+  private async generateA7XRadioResult(option: RunOption, rules: RuleSettings, filter: (t: SpotifyTrack) => boolean): Promise<RunResult> {
     const totalTarget = rules.playlistLength || 35;
     const catalog = configStore.getConfig().catalog;
     const a7xId = catalog.a7xArtistId || await SpotifyDataService.robustResolveArtist("Avenged Sevenfold");
@@ -364,7 +364,7 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
       }))
     ]);
 
-    const a7xSelection = this.shuffleArray(a7xPool.filter(t => !historyIds.has(t.id) && !BlockStore.isBlocked(t.id))).slice(0, a7xQuota);
+    const a7xSelection = this.shuffleArray(a7xPool.filter(filter)).slice(0, a7xQuota);
 
     const randomizedSimilarPools = similarPools.map(p => this.shuffleArray(p));
     const similarSelection: SpotifyTrack[] = [];
@@ -375,7 +375,7 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
       for (const pool of randomizedSimilarPools) {
         if (pool.length > 0) {
           const track = pool.shift()!;
-          if (!similarSelection.find(s => s.id === track.id) && !a7xSelection.find(a => a.id === track.id) && !historyIds.has(track.id) && !BlockStore.isBlocked(track.id)) {
+          if (!similarSelection.find(s => s.id === track.id) && !a7xSelection.find(a => a.id === track.id) && filter(track)) {
             similarSelection.push(track);
             addedThisPass++;
           }
@@ -393,7 +393,7 @@ export class SpotifyPlaybackEngine implements PlaybackEngine {
       const needed = totalTarget - mergedPool.length;
       const extra = this.shuffleArray([...a7xPool, ...similarPools.flat()]).filter(t => !mergedPool.find(m => m.id === t.id)).slice(0, needed);
       mergedPool.push(...extra);
-      warning = `Limited source pool. Supplemented ${needed} tracks.`;
+      warning = `Limited source pool via Cooldown. Supplemented ${needed} tracks.`;
     }
 
     return this.mapToRunResult(
