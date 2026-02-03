@@ -356,7 +356,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 bottom-[65px] z-[700] bg-black/40 backdrop-blur-2xl flex flex-col animate-in slide-in-from-right duration-500 overflow-x-hidden w-full max-w-[100vw] text-[#A9E8DF]">
+    <div className="fixed top-0 left-0 right-0 bottom-0 z-40 bg-black/40 backdrop-blur-2xl flex flex-col animate-in slide-in-from-right duration-500 overflow-x-hidden w-full max-w-[100vw] text-[#A9E8DF]">
       <div className="px-6 pb-6 flex items-center justify-between border-b border-white/5 bg-black/30 shrink-0 pt-16">
         <button onClick={() => { Haptics.impactAsync(ImpactFeedbackStyle.Light); onClose(); }} className="text-palette-pink text-[14px] font-black uppercase tracking-[0.2em] active:opacity-50 transition-opacity">Back</button>
         <div className="flex flex-col items-center">
@@ -367,7 +367,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         <div className="w-12" />
       </div>
 
-      <div className="flex-1 overflow-y-auto ios-scroller p-6 flex flex-col gap-8 pb-96 overflow-x-hidden w-full">
+      <div className="flex-1 overflow-y-auto ios-scroller p-6 flex flex-col gap-8 pb-[320px] overflow-x-hidden w-full">
         {genStatus === 'RUNNING' ? (
           <div className="h-full flex flex-col items-center justify-center text-center gap-12 animate-in fade-in duration-1000">
              <div className="relative">
@@ -430,7 +430,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       </div>
 
       {genStatus === 'DONE' && viewMode === 'PREVIEW' && (
-        <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-[60px] border-t border-white/10 p-6 z-[800]" style={{ bottom: '65px', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
+        <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-[60px] border-t border-white/10 p-6 z-[100]" style={{ bottom: '65px', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
            <div className="flex flex-col gap-3.5 max-w-lg mx-auto w-full transition-all duration-300">
               
               {activeStage === 'DEFAULT' && (
