@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RunOption, RuleSettings, RunResult, RunOptionType, SpotifyDevice, Track, PodcastShowCandidate } from '../types';
 import { RuleOverrideStore } from '../services/ruleOverrideStore';
@@ -157,6 +158,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   const [result, setResult] = useState<RunResult | null>(initialResult || null);
   const [error, setError] = useState<string | null>(null);
   const [isSavingToSpotify, setIsSavingToSpotify] = useState(false);
+  const [pendingInject, setPendingInject] = useState(false);
   
   const generationRequestId = useRef(0);
   const engine = useMemo(() => new SpotifyPlaybackEngine(), []);
@@ -200,6 +202,81 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     }
   };
 
+  /**
+   * injectMixToDevice - Forcefully pushes the full composition into the target Spotify device.
+   * Centralized helper for all injection and transfer paths.
+   */
+  const injectMixToDevice = async (targetDeviceId?: string) => {
+    if (!result?.tracks || result.tracks.length === 0) {
+      toastService.show("No tracks available to play", "warning");
+      return;
+    }
+
+    try {
+      // 1. Collect & Sanitize URIs
+      const rawUris = result.tracks.map(t => t.uri);
+      const uris = rawUris.filter(uri => /^spotify:(track|episode):[a-zA-Z0-9]+$/.test(uri));
+      
+      const filteredCount = rawUris.length - uris.length;
+      if (filteredCount > 0) {
+        const removed = rawUris.filter(u => !uris.includes(u));
+        console.warn(`[Sanitizer] Filtered ${filteredCount} invalid URIs:`, removed);
+      }
+
+      if (uris.length === 0) {
+        toastService.show("No valid tracks in mix", "warning");
+        return;
+      }
+
+      // 2. Determine correct offset to maintain place in mix
+      let offsetIndex = 0;
+      if (currentPlayingUri) {
+        const foundIdx = result.tracks.findIndex(t => t.uri === currentPlayingUri);
+        if (foundIdx !== -1) {
+          // Verify current track uri exists in our sanitized list
+          const sanitizedIdx = uris.indexOf(result.tracks[foundIdx].uri);
+          if (sanitizedIdx !== -1) offsetIndex = sanitizedIdx;
+        }
+      }
+
+      // 3. Official device handshake / session transfer
+      const deviceId = await spotifyPlayback.ensureActiveDevice(targetDeviceId);
+      
+      // 4. Predictable ordering: Disable Spotify native shuffle
+      await spotifyPlayback.setShuffle(false, deviceId);
+      
+      // 5. Hard-inject the URI list into the device's hardware queue
+      await spotifyPlayback.playUrisOnDevice(deviceId, uris, offsetIndex);
+      
+      const feedbackMsg = targetDeviceId ? "Playback switched & Mix loaded" : "Mix loaded into Spotify";
+      toastService.show(feedbackMsg, "success");
+    } catch (err: any) {
+      console.error("Injection Error:", err);
+      toastService.show(err.message || "Sync failed. Tapping 'Source' may help.", "info");
+    }
+  };
+
+  /**
+   * Visibility Hook - Detects when the user returns to the app from the Spotify wake-up call.
+   */
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && pendingInject) {
+        setPendingInject(false);
+        // Delay slightly (1.2s) to allow the deep-link started session 
+        // to register as "Active" in Spotify's cloud state.
+        setTimeout(() => injectMixToDevice(), 1200);
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('focus', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [pendingInject, result, currentPlayingUri]);
+
   useEffect(() => {
     if (!isQueueMode) {
       onPreviewStarted?.();
@@ -222,21 +299,25 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   }, [option, rules, initialResult]);
 
   /**
-   * handleWakeUpCall - Strictly uses a Deep Link to open Spotify.
-   * This "wakes up" the device so the Source button can then take control.
+   * handleWakeUpCall - Uses a Deep Link to open Spotify.
+   * Sets the pendingInject flag to synchronize the full queue upon return.
    */
   const handleWakeUpCall = () => {
     if (!result?.tracks || result.tracks.length === 0) return;
     Haptics.heavy();
     
     const firstTrack = result.tracks[0];
-    // Open Spotify via Deep Link
+    
+    // 1. Mark for automatic injection when user flips back to app
+    setPendingInject(true);
+
+    // 2. Open Spotify via Deep Link
     window.location.href = firstTrack.uri;
     
-    // Switch to Active Queue view
+    // 3. UI Transition
     setViewMode('QUEUE');
-    // Ensure the player is visible when user returns
     onPlayTriggered?.();
+    setShowPlayOptions(false);
   };
 
   const handleDeepLinkPlay = async () => {
@@ -551,28 +632,8 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
             onSelect={async (selectedDeviceId) => { 
               setShowDevicePicker(false); 
               Haptics.success();
-              try {
-                const token = await SpotifyAuth.getValidAccessToken();
-                if (!token) throw new Error("No Spotify token found");
-
-                // 1. Force-Start: Disable shuffle on target to respect our specific composition order
-                await spotifyPlayback.setShuffle(false, selectedDeviceId);
-                
-                // 2. Take Control: Play the FULL list from the start on the chosen device using the new spotifyService
-                const allTrackUris = result?.tracks?.map(t => t.uri) || []; 
-                if (allTrackUris.length > 0) {
-                  console.log("Sending Tracks to Spotify:", allTrackUris);
-                  // Pass 'allTrackUris' (the full list), NOT 'track.uri' (single song)
-                  const success = await spotifyService.play(token, selectedDeviceId, allTrackUris);
-                  if (success) {
-                    toastService.show("Mix sent to Spotify", "success");
-                  } else {
-                    toastService.show("Failed to start full mix", "error");
-                  }
-                }
-              } catch (e: any) {
-                toastService.show("Playback update failed: " + e.message, "error");
-              }
+              // Re-inject full mix onto the newly selected device
+              await injectMixToDevice(selectedDeviceId);
             }} 
             onClose={() => setShowDevicePicker(false)} 
           />
@@ -585,9 +646,9 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
             onClose={() => setShowQuickSource(false)} 
             onTransfer={async (foundDeviceId) => {
               setShowQuickSource(false);
-              await spotifyPlayback.transferPlayback(foundDeviceId, true);
+              // Official transfer and re-assertion of the GetReady mix context
+              await injectMixToDevice(foundDeviceId);
               Haptics.success();
-              toastService.show("Playback switched", "success");
             }}
           />
         </div>
