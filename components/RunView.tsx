@@ -561,6 +561,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                 // 2. Take Control: Play the FULL list from the start on the chosen device using the new spotifyService
                 const allTrackUris = result?.tracks?.map(t => t.uri) || []; 
                 if (allTrackUris.length > 0) {
+                  console.log("Sending Tracks to Spotify:", allTrackUris);
                   // Pass 'allTrackUris' (the full list), NOT 'track.uri' (single song)
                   const success = await spotifyService.play(token, selectedDeviceId, allTrackUris);
                   if (success) {
