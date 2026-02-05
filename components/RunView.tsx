@@ -128,7 +128,6 @@ const TrackRow: React.FC<{
         <div className="relative shrink-0 flex items-center justify-center min-w-[24px]">
           <StatusAsterisk status={track.status === 'liked' || track.status === 'gem' ? 'liked' : 'none'} />
         </div>
-        {/* FIX: Properly quoted class strings in ternary expression below */}
         <div className={`w-12 h-12 rounded-2xl bg-zinc-900 overflow-hidden shrink-0 border relative pointer-events-none transition-all duration-500 ${isActive ? 'border-palette-teal/60 scale-105 shadow-[0_0_20px_rgba(45,185,177,0.4)]' : 'border-white/10'}`}>
           <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
           {isActive && <div className="absolute inset-0 bg-palette-teal/15 animate-pulse" />}
@@ -221,9 +220,36 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   }, [option, rules, initialResult]);
 
   /**
-   * handleDeepLinkPlay - Creates a temporary playlist for the mix session
-   * and deep links directly to it in the Spotify app.
+   * handleSmartPlay - "Smart Remote" logic:
+   * Tries to start the full list on an active device.
+   * If no device is found or play fails, opens the Picker.
    */
+  const handleSmartPlay = async () => {
+    if (!result?.tracks || result.tracks.length === 0) return;
+    Haptics.heavy();
+
+    try {
+      const devices = await SpotifyApi.getDevices();
+      const activeDevice = devices.find(d => d.is_active);
+      
+      if (activeDevice) {
+        const uris = result.tracks.map(t => t.uri);
+        // Explicitly disable shuffle before starting the mix
+        await spotifyPlayback.setShuffle(false, activeDevice.id);
+        await spotifyPlayback.playUrisOnDevice(activeDevice.id, uris);
+        
+        onPlayTriggered?.(); 
+        setViewMode('QUEUE');
+        toastService.show("Mix Started", "success");
+      } else {
+        setShowDevicePicker(true);
+      }
+    } catch (err: any) {
+      console.log("Smart Play failed, opening picker...", err);
+      setShowDevicePicker(true);
+    }
+  };
+
   const handleDeepLinkPlay = async () => {
     if (!result?.tracks || result.tracks.length === 0) return;
     Haptics.heavy();
@@ -388,13 +414,12 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                   onClick={() => {
                     Haptics.impactAsync(ImpactFeedbackStyle.Light);
                     if (viewMode === 'PREVIEW') {
-                      // TOP Header Button: Launches Spotify directly with Auto-Playlist
-                      handleDeepLinkPlay();
+                      // TOP Header Button: Uses "Smart Remote" logic to play full mix
+                      handleSmartPlay();
                     } else {
                       handleOpenDevicePicker(); 
                     }
                   }}
-                  /* FIX: Properly quoted class strings in ternary expression below and removed stray quote */
                   className={`flex-1 relative overflow-hidden px-4 py-2.5 rounded-[20px] active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3 border ${viewMode === 'PREVIEW' ? 'border-palette-pink/40 bg-palette-pink/15 text-palette-pink shadow-palette-pink/20' : 'border-palette-emerald/40 bg-palette-emerald/15 text-palette-emerald shadow-palette-emerald/20'}`}
                 >
                   <svg className="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
@@ -530,7 +555,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         </div>
       )}
 
-      {showDevicePicker && <div className="fixed inset-0 z-[10001]"><DevicePickerModal onSelect={(foundDeviceId) => { setShowDevicePicker(false); spotifyPlayback.transferPlayback(foundDeviceId); }} onClose={() => setShowDevicePicker(false)} /></div>}
+      {showDevicePicker && <div className="fixed inset-0 z-[10001]"><DevicePickerModal onSelect={async (foundDeviceId) => { setShowDevicePicker(false); await spotifyPlayback.transferPlayback(foundDeviceId); handleSmartPlay(); }} onClose={() => setShowDevicePicker(false)} /></div>}
       
       {showQuickSource && (
         <div className="fixed inset-0 z-[10001]">
