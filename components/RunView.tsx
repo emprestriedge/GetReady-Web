@@ -6,6 +6,8 @@ import { SpotifyPlaybackEngine } from '../services/playbackEngine';
 import { Haptics, ImpactFeedbackStyle } from '../services/haptics';
 import { spotifyPlayback } from '../services/spotifyPlaybackService';
 import { SpotifyApi } from '../services/spotifyApi';
+import { SpotifyAuth } from '../services/spotifyAuth';
+import { spotifyService } from '../services/spotifyService';
 import { SpotifyDataService } from '../services/spotifyDataService';
 import { BlockStore } from '../services/blockStore';
 import { apiLogger } from '../services/apiLogger';
@@ -20,7 +22,7 @@ interface RunViewProps {
   rules: RuleSettings;
   onClose: () => void;
   onComplete: (result: RunResult) => void;
-  onNavigateToHistory?: () => void;
+  onNavigateToHistory?: void;
   initialResult?: RunResult;
   onResultUpdate?: (result: RunResult) => void;
   onPlayTriggered?: () => void;
@@ -546,18 +548,26 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       {showDevicePicker && (
         <div className="fixed inset-0 z-[10001]">
           <DevicePickerModal 
-            onSelect={async (foundDeviceId) => { 
+            onSelect={async (selectedDeviceId) => { 
               setShowDevicePicker(false); 
               Haptics.success();
               try {
+                const token = await SpotifyAuth.getValidAccessToken();
+                if (!token) throw new Error("No Spotify token found");
+
                 // 1. Force-Start: Disable shuffle on target to respect our specific composition order
-                await spotifyPlayback.setShuffle(false, foundDeviceId);
+                await spotifyPlayback.setShuffle(false, selectedDeviceId);
                 
-                // 2. Take Control: Play the FULL list from the start on the chosen device
-                const uris = result?.tracks?.map(t => t.uri) || []; 
-                if (uris.length > 0) {
-                  await spotifyPlayback.playUrisOnDevice(foundDeviceId, uris);
-                  toastService.show("Mix sent to " + foundDeviceId, "success");
+                // 2. Take Control: Play the FULL list from the start on the chosen device using the new spotifyService
+                const allTrackUris = result?.tracks?.map(t => t.uri) || []; 
+                if (allTrackUris.length > 0) {
+                  // Pass 'allTrackUris' (the full list), NOT 'track.uri' (single song)
+                  const success = await spotifyService.play(token, selectedDeviceId, allTrackUris);
+                  if (success) {
+                    toastService.show("Mix sent to Spotify", "success");
+                  } else {
+                    toastService.show("Failed to start full mix", "error");
+                  }
                 }
               } catch (e: any) {
                 toastService.show("Playback update failed: " + e.message, "error");
