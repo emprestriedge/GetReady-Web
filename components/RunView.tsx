@@ -220,34 +220,21 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   }, [option, rules, initialResult]);
 
   /**
-   * handleSmartPlay - "Smart Remote" logic:
-   * Tries to start the full list on an active device.
-   * If no device is found or play fails, opens the Picker.
+   * handleWakeUpCall - Strictly uses a Deep Link to open Spotify.
+   * This "wakes up" the device so the Source button can then take control.
    */
-  const handleSmartPlay = async () => {
+  const handleWakeUpCall = () => {
     if (!result?.tracks || result.tracks.length === 0) return;
     Haptics.heavy();
-
-    try {
-      const devices = await SpotifyApi.getDevices();
-      const activeDevice = devices.find(d => d.is_active);
-      
-      if (activeDevice) {
-        const uris = result.tracks.map(t => t.uri);
-        // Explicitly disable shuffle before starting the mix
-        await spotifyPlayback.setShuffle(false, activeDevice.id);
-        await spotifyPlayback.playUrisOnDevice(activeDevice.id, uris);
-        
-        onPlayTriggered?.(); 
-        setViewMode('QUEUE');
-        toastService.show("Mix Started", "success");
-      } else {
-        setShowDevicePicker(true);
-      }
-    } catch (err: any) {
-      console.log("Smart Play failed, opening picker...", err);
-      setShowDevicePicker(true);
-    }
+    
+    const firstTrack = result.tracks[0];
+    // Open Spotify via Deep Link
+    window.location.href = firstTrack.uri;
+    
+    // Switch to Active Queue view
+    setViewMode('QUEUE');
+    // Ensure the player is visible when user returns
+    onPlayTriggered?.();
   };
 
   const handleDeepLinkPlay = async () => {
@@ -414,9 +401,10 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                   onClick={() => {
                     Haptics.impactAsync(ImpactFeedbackStyle.Light);
                     if (viewMode === 'PREVIEW') {
-                      // TOP Header Button: Uses "Smart Remote" logic to play full mix
-                      handleSmartPlay();
+                      // TOP Header Button: The Wake Up Call
+                      handleWakeUpCall();
                     } else {
+                      // TOP Header Button (QUEUE mode): Takes Control
                       handleOpenDevicePicker(); 
                     }
                   }}
@@ -498,7 +486,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
             </header>
             <div className="flex flex-col gap-3">
               <button 
-                onClick={handleDeepLinkPlay}
+                onClick={handleWakeUpCall}
                 className="w-full py-6 rounded-[28px] bg-[#1DB954] text-white flex flex-col items-center gap-2 transition-all active:scale-95 shadow-xl shadow-[#1DB954]/20 border border-white/10"
               >
                 <div className="flex items-center gap-3">
@@ -507,7 +495,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                   </svg>
                   <span className="font-garet font-black text-[13px] uppercase tracking-widest">Play in Spotify</span>
                 </div>
-                <span className="text-[9px] opacity-70 font-bold">Launch Auto-Playlist</span>
+                <span className="text-[9px] opacity-70 font-bold">Launch Wake Up Call</span>
               </button>
               <button 
                 onClick={handleOpenDevicePicker}
@@ -555,7 +543,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         </div>
       )}
 
-      {showDevicePicker && <div className="fixed inset-0 z-[10001]"><DevicePickerModal onSelect={async (foundDeviceId) => { setShowDevicePicker(false); await spotifyPlayback.transferPlayback(foundDeviceId); handleSmartPlay(); }} onClose={() => setShowDevicePicker(false)} /></div>}
+      {showDevicePicker && <div className="fixed inset-0 z-[10001]"><DevicePickerModal onSelect={async (foundDeviceId) => { setShowDevicePicker(false); await spotifyPlayback.transferPlayback(foundDeviceId); const uris = result?.tracks?.map(t => t.uri) || []; await spotifyPlayback.playUrisOnDevice(foundDeviceId, uris); }} onClose={() => setShowDevicePicker(false)} /></div>}
       
       {showQuickSource && (
         <div className="fixed inset-0 z-[10001]">
