@@ -80,7 +80,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, rules, setRules, sp
   if (mode === 'devTools') return <DeveloperToolsView onBack={() => setMode('root')} onNavigate={setMode} />;
 
   return (
-    <div className="h-full overflow-y-auto p-4 animate-in fade-in duration-500 pb-56 w-full max-w-full overflow-x-hidden box-border">
+    <div className="h-full overflow-y-auto pt-24 pb-40 px-4 animate-in fade-in duration-500 w-full max-w-full overflow-x-hidden box-border ios-scroller z-0 relative">
       <header className="mb-10 pl-5 pr-4">
         <h1 className="text-7xl font-mango header-ombre leading-none tracking-tighter">Settings</h1>
       </header>

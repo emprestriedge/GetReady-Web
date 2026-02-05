@@ -1,6 +1,7 @@
+
 import { RunOption, RunOptionType, RuleSettings, Track, RunRecord } from './types';
 
-// Disabled Demo Mode for deployment
+// Enabled Demo Mode for UI testing
 export const USE_MOCK_DATA = false;
 
 export const SMART_MIX_MODES: RunOption[] = [

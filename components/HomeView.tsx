@@ -165,7 +165,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
   );
 
   const renderRoot = () => (
-    <div className="flex flex-col gap-4 px-4 pb-40 w-full max-w-[100vw] overflow-x-hidden">
+    <div className="flex flex-col gap-4 px-4 pt-24 pb-40 w-full max-w-[100vw] overflow-x-hidden">
       <header className="mb-6 pl-8 stagger-entry stagger-1">
         <h1 className="text-7xl font-mango header-ombre leading-none tracking-tighter">Library</h1>
         <p className="ios-caption text-zinc-500 text-[10px] font-black uppercase tracking-[0.3em] mt-5 ml-1">Daily Catalog</p>
@@ -284,7 +284,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
 
     const title = isMusic ? 'Music' : 'Shows';
     return (
-      <div className="flex flex-col gap-6 px-4 w-full max-w-[100vw] overflow-x-hidden pb-40">
+      <div className="flex flex-col gap-6 px-4 pt-24 pb-40 w-full max-w-[100vw] overflow-x-hidden">
         <header className="flex flex-col gap-2 pl-8 stagger-entry stagger-1">
           <button onClick={() => navigateTo('root')} className="text-palette-pink flex items-center gap-1 active:opacity-50 font-black text-xs uppercase tracking-widest"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M15 19l-7-7 7-7" /></svg><span className="font-garet font-bold">Library</span></button>
           <h2 className="text-7xl font-mango header-ombre leading-none mt-2 tracking-tighter">{title}</h2>

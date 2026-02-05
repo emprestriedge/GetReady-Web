@@ -57,7 +57,7 @@ const ToastOverlay: React.FC = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
   useEffect(() => toastService.subscribe(setToasts), []);
   return (
-    <div className="fixed top-14 left-4 right-4 z-[1000] flex flex-col gap-2 pointer-events-none" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}>
+    <div className="fixed top-14 left-4 right-4 z-[3000] flex flex-col gap-2 pointer-events-none" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}>
       {toasts.map(toast => (
         <div key={toast.id} className="p-5 rounded-[24px] border backdrop-blur-3xl bg-zinc-900/90 border-white/10 text-white shadow-2xl flex items-center justify-between pointer-events-auto animate-in slide-in-from-top-4">
           <span className="text-sm font-garet font-bold ml-2">{toast.message}</span>
@@ -73,7 +73,7 @@ const ToastOverlay: React.FC = () => {
 const DemoModeIndicator: React.FC = () => {
   if (!USE_MOCK_DATA) return null;
   return (
-    <div className="fixed bottom-16 right-4 z-[400] pointer-events-none">
+    <div className="fixed bottom-24 right-4 z-[400] pointer-events-none">
        <span className="bg-palette-gold/20 backdrop-blur-md border border-palette-gold/30 text-palette-gold text-[8px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full opacity-60">
          DEMO MODE
        </span>
@@ -93,12 +93,10 @@ const App: React.FC = () => {
   const [activeRunResult, setActiveRunResult] = useState<RunResult | null>(null);
   const [showRunOverlay, setShowRunOverlay] = useState(false);
   const [authStatus, setAuthStatus] = useState<string>('idle');
-  const [isPlayerVisible, setIsPlayerVisible] = useState(false);
+  // DEBUG MODE: Forced player visibility to true
+  const [isPlayerVisible, setIsPlayerVisible] = useState(true);
   const [isRunViewQueueMode, setIsRunViewQueueMode] = useState(false);
 
-  /**
-   * triggerHaptic - Helper to trigger the iOS 18 switch haptic trick.
-   */
   const triggerHaptic = () => {
     const trigger = document.getElementById('haptic-trigger') as HTMLInputElement;
     if (trigger) {
@@ -165,13 +163,13 @@ const App: React.FC = () => {
     triggerHaptic();
     Haptics.light();
     
-    // Explicitly dismiss overlay on any tab click to fix "dead buttons"
+    // UI FIXED: Always dismiss any active mix/queue overlay when tapping a nav button
     setShowRunOverlay(false);
     
     if (tab !== activeTab) {
       setActiveTab(tab);
     } else {
-      // Refresh logic if already on tab
+      // If tapping the already active tab, trigger a "reset" for its root view
       if (tab === 'Home') setHomeKey(prev => prev + 1);
       if (tab === 'Settings') setSettingsKey(prev => prev + 1);
     }
@@ -210,106 +208,117 @@ const App: React.FC = () => {
     }
   };
 
+  // Condition to hide player during Preview phase of RunView to avoid overlapping action buttons
+  const isCurrentlyInPreview = showRunOverlay && !isRunViewQueueMode;
+
   return (
     <ErrorBoundary>
-      <InkBackground>
-        <div id="main-content-scroller" className="flex-1 overflow-y-auto ios-scroller w-full relative pt-16 pb-[env(safe-area-inset-bottom, 80px)]">
-          {activeTab === 'Home' && (
-            <HomeView 
-              key={homeKey}
-              onSelect={handleStartRun} 
+      <div className="relative min-h-[100dvh] w-full overflow-hidden bg-black text-white">
+        <InkBackground>
+          {/* Layer 0: Main Content */}
+          <div id="main-content-scroller" className="flex-1 overflow-y-auto ios-scroller w-full relative pb-[env(safe-area-inset-bottom)]">
+            {activeTab === 'Home' && (
+              <HomeView 
+                key={homeKey}
+                onSelect={handleStartRun} 
+                rules={rules} 
+                setRules={setRules} 
+              />
+            )}
+            {activeTab === 'Vault' && (
+              <HistoryView 
+                history={history} 
+                onPreviewStarted={() => {
+                  setIsRunViewQueueMode(false);
+                }}
+                onPlayTriggered={() => {
+                  setIsPlayerVisible(true);
+                  setIsRunViewQueueMode(true);
+                }}
+              />
+            )}
+            {activeTab === 'Settings' && (
+              <SettingsView 
+                key={settingsKey}
+                config={config} 
+                rules={rules} 
+                setRules={setRules} 
+                spotifyUser={spotifyUser}
+                authStatus={authStatus}
+                authError={null}
+                setAuthStatus={setAuthStatus}
+              />
+            )}
+          </div>
+
+          {/* Layer 1: RunView Overlay */}
+          {activeRunOption && showRunOverlay && (
+            <RunView 
+              option={activeRunOption} 
               rules={rules} 
-              setRules={setRules} 
-            />
-          )}
-          {activeTab === 'Vault' && (
-            <HistoryView 
-              history={history} 
-              onPreviewStarted={() => {
-                setIsPlayerVisible(false);
-                setIsRunViewQueueMode(false);
-              }}
+              onClose={() => setShowRunOverlay(false)} 
+              onComplete={handleRunComplete}
+              initialResult={activeRunResult || undefined}
+              onResultUpdate={setActiveRunResult}
               onPlayTriggered={() => {
-                setIsPlayerVisible(true);
-                setIsRunViewQueueMode(true);
+                 setIsPlayerVisible(true);
+                 setIsRunViewQueueMode(true); 
+              }}
+              onPreviewStarted={() => {
+                setIsRunViewQueueMode(false);
+              }}
+              isQueueMode={isRunViewQueueMode}
+              onRegenerate={() => {
+                setActiveRunResult(null);
               }}
             />
           )}
-          {activeTab === 'Settings' && (
-            <SettingsView 
-              key={settingsKey}
-              config={config} 
-              rules={rules} 
-              setRules={setRules} 
-              spotifyUser={spotifyUser}
-              authStatus={authStatus}
-              authError={null}
-              setAuthStatus={setAuthStatus}
+
+          {/* Layer 2: Navbar */}
+          <nav className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center px-6 z-[2500] h-[85px] pb-[env(safe-area-inset-bottom)]">
+            {(['Home', 'Vault', 'Settings'] as TabType[]).map((tab) => {
+              const isActive = activeTab === tab;
+              return (
+                <button 
+                  key={tab} 
+                  onClick={() => handleTabClick(tab)}
+                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${isActive ? 'scale-110' : 'opacity-40'}`}
+                >
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${isActive ? 'bg-palette-pink text-white shadow-xl shadow-palette-pink/30' : 'text-zinc-500'}`}>
+                    {tab === 'Home' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>}
+                    {tab === 'Vault' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 12l10 10 10-10L12 2z"/></svg>}
+                    {tab === 'Settings' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l-.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>}
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-palette-pink' : 'text-zinc-600'}`}>
+                    {tab}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Layer 3: Player (Floating above Navbar, hidden only during RunView Preview) */}
+          {isPlayerVisible && !isCurrentlyInPreview && (
+            <NowPlayingStrip 
+              onStripClick={handleRestoreRun} 
+              onClose={() => {
+                  setIsPlayerVisible(false);
+                  setIsRunViewQueueMode(false);
+              }}
             />
           )}
-        </div>
+          
+          <ToastOverlay />
+          <DemoModeIndicator />
 
-        {activeRunOption && showRunOverlay && (
-          <RunView 
-            option={activeRunOption} 
-            rules={rules} 
-            onClose={() => setShowRunOverlay(false)} 
-            onComplete={handleRunComplete}
-            initialResult={activeRunResult || undefined}
-            onResultUpdate={setActiveRunResult}
-            onPlayTriggered={() => {
-               setIsPlayerVisible(true);
-               setIsRunViewQueueMode(true); 
-            }}
-            onPreviewStarted={() => {
-              setIsPlayerVisible(false);
-              setIsRunViewQueueMode(false);
-            }}
-            isQueueMode={isRunViewQueueMode}
+          <input 
+            type="checkbox" 
+            id="haptic-trigger" 
+            {...({ switch: '' } as any)} 
+            style={{ display: 'none', position: 'absolute', pointerEvents: 'none' }} 
           />
-        )}
-
-        {isPlayerVisible && (
-          <NowPlayingStrip 
-            onStripClick={handleRestoreRun} 
-            onClose={() => {
-                setIsPlayerVisible(false);
-                setIsRunViewQueueMode(false);
-            }}
-          />
-        )}
-        <ToastOverlay />
-        <DemoModeIndicator />
-
-        <nav className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center px-6 z-[600] h-[65px] pb-[env(safe-area-inset-bottom)]">
-          {(['Home', 'Vault', 'Settings'] as TabType[]).map((tab) => {
-            const isActive = activeTab === tab;
-            return (
-              <button 
-                key={tab} 
-                onClick={() => handleTabClick(tab)}
-                className={`flex flex-col items-center gap-0.5 transition-all duration-300 ${isActive ? 'scale-105' : 'opacity-40 grayscale'}`}
-              >
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isActive ? 'bg-palette-pink text-white shadow-lg shadow-palette-pink/30' : 'text-zinc-400'}`}>
-                  {tab === 'Home' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>}
-                  {tab === 'Vault' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 12l10 10 10-10L12 2z"/></svg>}
-                  {tab === 'Settings' && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>}
-                </div>
-                <span className={`text-[8px] font-black uppercase tracking-widest ${isActive ? 'text-palette-pink' : 'text-zinc-600'}`}>
-                  {tab === 'Vault' ? 'Vault' : tab}
-                </span>
-              </button>
-            );
-          })}
-        </nav>
-
-        <input 
-          type="checkbox" 
-          id="haptic-trigger" 
-          {...({ switch: '' } as any)} 
-          style={{ display: 'none', position: 'absolute', pointerEvents: 'none' }} 
-        />
-      </InkBackground>
+        </InkBackground>
+      </div>
     </ErrorBoundary>
   );
 };

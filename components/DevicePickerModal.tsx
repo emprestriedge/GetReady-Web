@@ -41,8 +41,8 @@ const DevicePickerModal: React.FC<DevicePickerModalProps> = ({ onSelect, onClose
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-xl flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-300">
-      <div className="bg-zinc-900 w-full max-w-md rounded-[40px] border border-white/10 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-8 duration-500">
+    <div className="fixed inset-0 z-[10001] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300">
+      <div className="bg-zinc-900 w-full max-w-md rounded-[44px] border border-white/10 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in duration-500">
         <header className="px-8 pt-8 pb-4 flex justify-between items-center">
           <div>
             <h2 className="text-3xl font-mango text-[#A9E8DF]">Select Device</h2>
@@ -55,7 +55,7 @@ const DevicePickerModal: React.FC<DevicePickerModalProps> = ({ onSelect, onClose
           </button>
         </header>
 
-        <div className="p-6 flex-1 max-h-[60vh] overflow-y-auto">
+        <div className="p-6 flex-1 max-h-[50vh] overflow-y-auto ios-scroller">
           {loading && devices.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
                <div className="w-10 h-10 border-4 border-palette-pink border-t-transparent rounded-full animate-spin" />

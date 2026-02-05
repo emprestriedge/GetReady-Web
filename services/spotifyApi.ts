@@ -5,7 +5,23 @@ import { toastService } from './toastService';
 import { USE_MOCK_DATA } from '../constants';
 
 // Persist mock playback state in memory for the session
-let mockPlaybackState: any = null;
+// Initialized with dummy data for immediate debug visibility
+let mockPlaybackState: any = USE_MOCK_DATA ? {
+  is_playing: false,
+  progress_ms: 45000,
+  item: {
+    name: 'Midnight City - M83 [Extended Remix]',
+    uri: 'spotify:track:1',
+    duration_ms: 243000,
+    artists: [{ name: 'M83' }],
+    album: { 
+      name: 'Hurry Up, We\'re Dreaming',
+      images: [{ url: 'https://i.scdn.co/image/ab67616d0000b2737604586e92b34a1795f573c0' }] 
+    },
+    device: { name: 'iPhone 17 Pro Max' }
+  },
+  device: { name: 'iPhone 17 Pro Max' }
+} : null;
 
 export const SpotifyApi = {
   request: async (endpoint: string, options: RequestInit = {}): Promise<any> => {

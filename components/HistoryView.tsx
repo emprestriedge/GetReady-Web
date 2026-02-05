@@ -132,7 +132,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onPreviewStarted, on
 
   const handleOpenDetail = (record: RunRecord) => {
     Haptics.light();
-    onPreviewStarted?.(); // The fix: Hide global player when previewing from Vault
+    onPreviewStarted?.(); 
     setViewingRecord(record);
   };
 
@@ -168,7 +168,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onPreviewStarted, on
         await spotifyPlayback.playUrisOnDevice(activeDeviceId, uris);
         Haptics.success();
         toastService.show("Playback started", "success");
-        onPlayTriggered?.(); // Ensure global player strip appears
+        onPlayTriggered?.(); 
       }
     } catch (e: any) {
       Haptics.error();
@@ -229,7 +229,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onPreviewStarted, on
   }
 
   return (
-    <div className="h-full overflow-y-auto p-4 animate-in fade-in duration-500 pb-56 w-full max-w-[100vw] overflow-x-hidden">
+    <div className="h-full overflow-y-auto pt-24 pb-40 px-4 animate-in fade-in duration-500 w-full max-w-[100vw] overflow-x-hidden ios-scroller z-0 relative">
       <header className="mb-10 pl-6 pr-4 stagger-entry stagger-1">
         <h1 className="text-7xl font-mango header-ombre leading-none tracking-tighter">The Vault</h1>
       </header>
@@ -262,7 +262,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onPreviewStarted, on
       )}
 
       {showDevicePicker && (
-        <div className="fixed inset-0 z-[200]">
+        <div className="fixed inset-0 z-[3000]">
            <DevicePickerModal 
              onSelect={handleDeviceSelected} 
              onClose={() => setShowDevicePicker(null)} 
@@ -271,7 +271,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onPreviewStarted, on
       )}
 
       {showSpotifyPrompt && (
-        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[3000] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300">
           <div className="bg-zinc-900 border border-white/10 rounded-[40px] p-8 w-full max-w-md flex flex-col gap-6 animate-in zoom-in duration-300 shadow-2xl">
             <header>
               <h2 className="text-4xl font-mango text-palette-teal leading-none">Sync to Spotify</h2>
