@@ -30,7 +30,7 @@ class SpotifyPlaybackService {
   async playUrisOnDevice(deviceId: string, uris: string[], offsetIndex?: number): Promise<void> {
     // SURGICAL SANITIZATION
     const originalUris = uris || [];
-    const pattern = /^spotify:(track|episode):[A-Za-z0-9]+$/;
+    const pattern = /^spotify:(track|episode):[a-zA-Z0-9]+$/;
     
     const safeUris = originalUris
       .map(u => (u || "").trim())
@@ -38,9 +38,9 @@ class SpotifyPlaybackService {
 
     const rejected = originalUris.filter(u => !safeUris.includes(u.trim()));
 
-    // DEBUG LOGS
-    console.log("[PLAYBACK DEBUG] deviceId=", deviceId, "originalCount=", originalUris.length, "safeCount=", safeUris.length, "first5=", safeUris.slice(0, 5));
-    console.log("[PLAYBACK DEBUG] rejectedExamples=", rejected.slice(0, 5));
+    // DEBUG LOGS - PIPED TO ON-SCREEN BUFFER
+    apiLogger.logClick(`[PLAYBACK DEBUG] deviceId=${deviceId} originalCount=${originalUris.length} safeCount=${safeUris.length} first5=${safeUris.slice(0, 5).join(', ')}`);
+    apiLogger.logClick(`[PLAYBACK DEBUG] rejectedExamples=${rejected.slice(0, 5).join(', ')}`);
 
     if (safeUris.length === 0) {
       toastService.show("No valid Spotify items to play. Please re-sync or reselect source.", "error");

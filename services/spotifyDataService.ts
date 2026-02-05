@@ -2,6 +2,7 @@ import { SpotifyApi } from './spotifyApi';
 import { SpotifyTrack, SpotifyEpisode, SpotifyArtist } from '../types';
 import { apiLogger } from './apiLogger';
 import { USE_MOCK_DATA, MOCK_TRACKS } from '../constants';
+import { toastService } from './toastService';
 
 /**
  * shuffleArray - Fisher-Yates shuffle algorithm for high-quality randomization.
@@ -126,7 +127,7 @@ export const SpotifyDataService = {
     return SpotifyApi.request(`/me/tracks/contains?ids=${trackIds.join(',')}`);
   },
 
-  getPlaylistTracks: async (playlistId: string, limit = 50, offset = 0): Promise<SpotifyTrack[]> => {
+  getPlaylistTracks: async (playlistInput: string, limit = 50, offset = 0): Promise<SpotifyTrack[]> => {
     if (USE_MOCK_DATA) {
       // Mock randomization: Shuffling the pool ensures "Regenerate" looks different every time.
       const mockPool = MOCK_TRACKS.map(t => ({
@@ -145,8 +146,16 @@ export const SpotifyDataService = {
       return shuffleArray(mockPool).slice(0, limit);
     }
 
-    if (!playlistId || playlistId === "Unlinked") {
+    if (!playlistInput || playlistInput === "Unlinked") {
        throw new Error("Playlist ID is missing or unlinked.");
+    }
+
+    // SURGICAL PLAYLIST ID EXTRACTION
+    let playlistId = playlistInput.trim();
+    if (playlistId.includes('open.spotify.com/playlist/')) {
+      playlistId = playlistId.split('/playlist/')[1]?.split('?')[0] || playlistId;
+    } else {
+      playlistId = playlistId.split('?')[0]; // Strip ?si= etc if just ID was provided
     }
 
     try {
@@ -154,8 +163,11 @@ export const SpotifyDataService = {
       const data = await SpotifyApi.request(`/playlists/${playlistId}/tracks?limit=${nLimit}&offset=${offset}`);
       return data.items.map((item: any) => item.track).filter((t: any) => t !== null);
     } catch (e: any) {
+      // STOP THE FLOW AND ALERT USER ON 404
       if (e.status === 404) {
-        apiLogger.logError(`Playlist ${playlistId} not found (404).`);
+        apiLogger.logClick(`[PLAYBACK ERROR] playlist fetch failed status=404 id=${playlistId}`);
+        toastService.show("Couldn’t load that playlist from Spotify (404). Try reconnecting or choose a different source.", "error");
+        throw new Error("STOP_FLOW_404"); // Custom error to halt composition engine
       }
       throw e;
     }
