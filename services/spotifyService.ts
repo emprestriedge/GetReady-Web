@@ -9,12 +9,9 @@ export const spotifyService = {
   play: async (token: string, deviceId: string, uris: string[] | string) => {
     const url = `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`;
     
-    // FORCE-FIX: Ensure 'uris' is always an array of strings.
-    // This fixes the "String did not match expected pattern" error.
-    const safeUris = Array.isArray(uris) ? uris : [uris];
-
+    // FORCE ARRAY: Wrap the input in brackets if it is not already an array.
     const body = JSON.stringify({
-      uris: safeUris, 
+      uris: Array.isArray(uris) ? uris : [uris], 
       position_ms: 0
     });
 
