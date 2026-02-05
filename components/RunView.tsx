@@ -543,7 +543,30 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         </div>
       )}
 
-      {showDevicePicker && <div className="fixed inset-0 z-[10001]"><DevicePickerModal onSelect={async (foundDeviceId) => { setShowDevicePicker(false); await spotifyPlayback.transferPlayback(foundDeviceId); const uris = result?.tracks?.map(t => t.uri) || []; await spotifyPlayback.playUrisOnDevice(foundDeviceId, uris); }} onClose={() => setShowDevicePicker(false)} /></div>}
+      {showDevicePicker && (
+        <div className="fixed inset-0 z-[10001]">
+          <DevicePickerModal 
+            onSelect={async (foundDeviceId) => { 
+              setShowDevicePicker(false); 
+              Haptics.success();
+              try {
+                // 1. Force-Start: Disable shuffle on target to respect our specific composition order
+                await spotifyPlayback.setShuffle(false, foundDeviceId);
+                
+                // 2. Take Control: Play the FULL list from the start on the chosen device
+                const uris = result?.tracks?.map(t => t.uri) || []; 
+                if (uris.length > 0) {
+                  await spotifyPlayback.playUrisOnDevice(foundDeviceId, uris);
+                  toastService.show("Mix sent to " + foundDeviceId, "success");
+                }
+              } catch (e: any) {
+                toastService.show("Playback update failed: " + e.message, "error");
+              }
+            }} 
+            onClose={() => setShowDevicePicker(false)} 
+          />
+        </div>
+      )}
       
       {showQuickSource && (
         <div className="fixed inset-0 z-[10001]">
