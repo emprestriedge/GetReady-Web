@@ -149,7 +149,7 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick, onClose
 
   return (
     <div 
-      className={`fixed bottom-[85px] left-0 right-0 z-[9999] h-16 cursor-pointer touch-none select-none px-4 ${!isSwiping ? 'transition-all duration-300' : ''}`}
+      className={`fixed bottom-[96px] left-0 right-0 z-[9999] h-16 cursor-pointer touch-none select-none px-4 ${!isSwiping ? 'transition-all duration-300' : ''}`}
       style={{ 
         transform: `translateX(${dragX}px)`,
         opacity: Math.max(0, 1 - Math.abs(dragX) / (DISMISS_THRESHOLD * 2.5))

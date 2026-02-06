@@ -22,7 +22,7 @@ const PerOptionRulesView: React.FC<PerOptionRulesViewProps> = ({ onBack }) => {
   }
 
   return (
-    <div className="p-4 animate-in fade-in duration-300 pb-32">
+    <div className="pt-24 px-4 animate-in fade-in duration-300 pb-40">
       <header className="mb-8 flex flex-col gap-2">
         <button 
           onClick={onBack} 

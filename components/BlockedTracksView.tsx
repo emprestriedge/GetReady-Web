@@ -28,7 +28,7 @@ const BlockedTracksView: React.FC<BlockedTracksViewProps> = ({ onBack }) => {
   );
 
   return (
-    <div className="p-4 animate-in slide-in-from-right duration-300 pb-32">
+    <div className="pt-24 px-4 animate-in slide-in-from-right duration-300 pb-40">
       <header className="mb-8 flex flex-col gap-2 px-2">
         <button 
           onClick={onBack} 
