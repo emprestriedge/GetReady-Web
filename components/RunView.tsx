@@ -54,7 +54,9 @@ const TrackRow: React.FC<{
   const isLongPress = useRef(false);
   
   const SWIPE_LIMIT = -100;
-  const LONG_PRESS_DURATION = 300;
+  // Restore specific long-press duration and sensitivity deadzone
+  const LONG_PRESS_DURATION = 500;
+  const MOVEMENT_THRESHOLD = 12;
 
   const handleTouchStart = (foundEvent: React.TouchEvent) => {
     touchStartX.current = foundEvent.touches[0].clientX;
@@ -64,7 +66,7 @@ const TrackRow: React.FC<{
     timerRef.current = setTimeout(() => {
       isLongPress.current = true;
       onStatusToggle(track);
-      onHaptic(); 
+      // Success haptic is handled in the parent toggle logic
     }, LONG_PRESS_DURATION);
 
     const now = Date.now();
@@ -82,7 +84,8 @@ const TrackRow: React.FC<{
     if (touchStartX.current === null) return;
     const deltaX = foundEvent.touches[0].clientX - touchStartX.current;
     
-    if (Math.abs(deltaX) > 8) {
+    // Deadzone: If user moves horizontally beyond 12px, cancel long-press and treat as swipe
+    if (Math.abs(deltaX) > MOVEMENT_THRESHOLD) {
       clearTimeout(timerRef.current);
       setIsPressed(false);
     }
@@ -129,7 +132,7 @@ const TrackRow: React.FC<{
         className={`w-full flex items-center gap-4 p-5 transition-all group text-left select-none relative z-10 border-b border-[#6D28D9]/20 ${isActive ? 'bg-palette-teal/15 border-palette-teal/40 shadow-[inset_0_0_40px_rgba(45,185,177,0.15)]' : 'bg-[#0a0a0a]/85 backdrop-blur-3xl hover:bg-white/5 active:bg-palette-teal/5'}`}
       >
         <div className="relative shrink-0 flex items-center justify-center min-w-[24px]">
-          <StatusAsterisk status={track.status === 'liked' || track.status === 'gem' ? 'liked' : 'none'} />
+          <StatusAsterisk status={track.status || 'none'} />
         </div>
         <div className={`w-12 h-12 rounded-2xl bg-zinc-900 overflow-hidden shrink-0 border relative pointer-events-none transition-all duration-500 ${isActive ? 'border-palette-teal/60 scale-105 shadow-[0_0_20px_rgba(45,185,177,0.4)]' : 'border-white/10'}`}>
           <img src={track.imageUrl} alt="" className="w-full h-full object-cover" />
@@ -388,17 +391,36 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     }
   };
 
+  // Improved: handleToggleStatus now manages "Gems" playlist state with optimistic UI
   const handleToggleStatus = async (track: Track) => {
     if (!result?.tracks) return;
-    Haptics.medium();
-    const newStatus: 'liked' | 'none' | 'gem' = (track.status === 'liked' ? 'none' : 'liked') as any;
+    
+    const isCurrentlyGem = track.status === 'gem';
+    const newStatus: 'liked' | 'none' | 'gem' = isCurrentlyGem ? 'none' : 'gem';
+    
+    // Optimistic UI state update
+    const originalTracks = [...result.tracks];
+    const updatedTracks = result.tracks.map(t => t.id === track.id ? { ...t, status: newStatus } : t);
+    const updatedResult = { ...result, tracks: updatedTracks };
+    setResult(updatedResult);
+    if (onResultUpdate) onResultUpdate(updatedResult);
+
     try {
-      await SpotifyDataService.setTrackLiked(track.id, newStatus === 'liked');
-      const updatedTracks = result.tracks.map(t => t.id === track.id ? { ...t, status: newStatus } : t);
-      const updatedResult = { ...result, tracks: updatedTracks };
-      setResult(updatedResult);
-      onResultUpdate?.(updatedResult);
-    } catch (foundError) {}
+      if (newStatus === 'gem') {
+        Haptics.success();
+        await SpotifyDataService.addTrackToGems(track.uri);
+        toastService.show("Added to Gems", "success");
+      } else {
+        Haptics.medium();
+        await SpotifyDataService.removeTrackFromGems(track.uri);
+        toastService.show("Removed from Gems", "info");
+      }
+    } catch (err: any) {
+      // Revert state on network/API failure
+      setResult({ ...result, tracks: originalTracks });
+      if (onResultUpdate) onResultUpdate({ ...result, tracks: originalTracks });
+      apiLogger.logError(`Gems toggle failed for ${track.id}: ${err.message}`);
+    }
   };
 
   const handleBlockTrack = async (track: Track) => {

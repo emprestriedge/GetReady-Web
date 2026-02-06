@@ -19,8 +19,8 @@ export interface AuthDiagnostic {
   };
 }
 
-// SCOPE VERSIONING: Increment this to force all users to re-login for new permissions.
-const SCOPE_VERSION = 'v2'; 
+// SCOPE VERSIONING: Bumped to v3 to ensure Gems playlist permissions are active
+const SCOPE_VERSION = 'v3'; 
 
 export const SCOPES = [
   'user-read-private',

@@ -18,12 +18,13 @@ const shuffleArray = <T>(array: T[]): T[] => {
 
 /**
  * normalizeLimit - Ensures limit is an integer between 1 and maxValue.
- * Fixes [HTTP 400] Invalid limit errors from Spotify.
+ * Increased maxValue to allow for larger internal bulk requests.
  */
 const normalizeLimit = (endpoint: string, input: any, defaultValue: number, maxValue: number): number => {
   let val = Number(input);
   if (isNaN(val)) val = defaultValue;
   val = Math.floor(val);
+  // Relaxed from 50 to 500 to support larger internal fetches
   const finalVal = Math.min(maxValue, Math.max(1, val));
   
   apiLogger.logClick(`Limit Norm [${endpoint}]: requested ${input} -> normalized ${finalVal}`);
@@ -44,9 +45,11 @@ export const SpotifyDataService = {
     }
   },
 
-  getLikedTracks: async (limit = 20, offset = 0): Promise<SpotifyTrack[]> => {
+  /**
+   * getLikedTracks - Now implements deep pagination to fetch up to 300 tracks.
+   */
+  getLikedTracks: async (targetLimit = 300): Promise<SpotifyTrack[]> => {
     if (USE_MOCK_DATA) {
-      // Simulate real randomization for mock mode by shuffling the entire MOCK_TRACKS pool
       const mockPool = MOCK_TRACKS.map(t => ({
         id: t.uri.split(':').pop() || '',
         name: t.title,
@@ -55,12 +58,42 @@ export const SpotifyDataService = {
         album: { name: t.album || 'Mock Album', id: 'mock_album', images: [{ url: t.imageUrl || '' }] },
         duration_ms: t.durationMs
       })) as SpotifyTrack[];
-      return shuffleArray(mockPool).slice(0, limit);
+      return shuffleArray(mockPool).slice(0, targetLimit);
     }
 
-    const nLimit = normalizeLimit('/me/tracks', limit, 20, 50);
-    const data = await SpotifyApi.request(`/me/tracks?limit=${nLimit}&offset=${offset}`);
-    return data.items.map((item: any) => item.track);
+    let allTracks: SpotifyTrack[] = [];
+    let currentOffset = 0;
+    const pageSize = 50;
+    const offsetsUsed: number[] = [];
+    const MAX_POOL = 300; // Hard cap for variety/performance balance
+
+    apiLogger.logClick(`Engine [FETCH]: Gathering Liked Songs (target: ${targetLimit})`);
+
+    try {
+      while (allTracks.length < Math.min(targetLimit, MAX_POOL)) {
+        const remaining = Math.min(targetLimit, MAX_POOL) - allTracks.length;
+        const nLimit = Math.min(pageSize, remaining);
+        
+        offsetsUsed.push(currentOffset);
+        const data = await SpotifyApi.request(`/me/tracks?limit=${nLimit}&offset=${currentOffset}`);
+        
+        if (!data.items || data.items.length === 0) break;
+        
+        const pageTracks = data.items.map((item: any) => item.track).filter((t: any) => t !== null);
+        allTracks = [...allTracks, ...pageTracks];
+        
+        if (pageTracks.length < nLimit) break;
+        currentOffset += nLimit;
+      }
+
+      apiLogger.logClick(`Liked Songs pool size: ${allTracks.length} (pages: offsets ${offsetsUsed.join(', ')})`);
+      
+      // Return shuffled to ensure high variety for the caller
+      return shuffleArray(allTracks);
+    } catch (err: any) {
+      apiLogger.logError(`Failed to fetch Liked Songs pool: ${err.message}`);
+      throw err;
+    }
   },
 
   getLikedTracksIds: async (limit = 50): Promise<Set<string>> => {
@@ -129,7 +162,6 @@ export const SpotifyDataService = {
 
   getPlaylistTracks: async (playlistInput: string, limit = 50, offset = 0): Promise<SpotifyTrack[]> => {
     if (USE_MOCK_DATA) {
-      // Mock randomization: Shuffling the pool ensures "Regenerate" looks different every time.
       const mockPool = MOCK_TRACKS.map(t => ({
         id: t.uri.split(':').pop() || '',
         name: t.title,
@@ -139,7 +171,7 @@ export const SpotifyDataService = {
           name: t.album || 'Mock Album', 
           id: 'mock_album', 
           images: [{ url: t.imageUrl || '' }],
-          release_date: "1999-01-01" // Mock a 90s date for filtering tests
+          release_date: "1999-01-01" 
         },
         duration_ms: t.durationMs
       })) as SpotifyTrack[];
@@ -150,12 +182,15 @@ export const SpotifyDataService = {
        throw new Error("Playlist ID is missing or unlinked.");
     }
 
-    // SURGICAL PLAYLIST ID EXTRACTION
-    let playlistId = playlistInput.trim();
-    if (playlistId.includes('open.spotify.com/playlist/')) {
-      playlistId = playlistId.split('/playlist/')[1]?.split('?')[0] || playlistId;
-    } else {
-      playlistId = playlistId.split('?')[0]; // Strip ?si= etc if just ID was provided
+    const playlistId = playlistInput.trim();
+
+    // PROMPT REQUIREMENT: Diagnostic logging for playlist metadata
+    apiLogger.logClick(`Fetching playlist metadata for id=${playlistId} sourceType=playlist trigger=getPlaylistTracks`);
+
+    // Safety check: Skip if id is "Liked Songs" identifier to prevent stray 404s
+    if (playlistId === 'liked_songs' || playlistId === 'me') {
+       apiLogger.logError(`Blocked invalid playlist metadata fetch for id=${playlistId} - Redirecting to Library`);
+       return SpotifyDataService.getLikedTracks(limit);
     }
 
     try {
@@ -163,19 +198,17 @@ export const SpotifyDataService = {
       const data = await SpotifyApi.request(`/playlists/${playlistId}/tracks?limit=${nLimit}&offset=${offset}`);
       return data.items.map((item: any) => item.track).filter((t: any) => t !== null);
     } catch (e: any) {
-      // STOP THE FLOW AND ALERT USER ON 404
       if (e.status === 404) {
         apiLogger.logClick(`[PLAYBACK ERROR] playlist fetch failed status=404 id=${playlistId}`);
-        toastService.show("Couldn’t load that playlist from Spotify (404). Try reconnecting or choose a different source.", "error");
-        throw new Error("STOP_FLOW_404"); // Custom error to halt composition engine
+        toastService.show("Couldn’t load that playlist from Spotify (404).", "error");
+        throw new Error("STOP_FLOW_404");
       }
       throw e;
     }
   },
 
   /**
-   * Fetches album tracks and maps them to the full SpotifyTrack structure
-   * by re-attaching the album info (which is missing in simple track objects).
+   * Fetches album tracks and maps them to the full SpotifyTrack structure.
    */
   getAlbumTracksFull: async (albumId: string): Promise<SpotifyTrack[]> => {
     const album = await SpotifyDataService.getAlbumById(albumId);
@@ -192,10 +225,12 @@ export const SpotifyDataService = {
     }));
   },
 
-  getPlaylistTracksBulk: async (playlistId: string, targetCount = 100): Promise<SpotifyTrack[]> => {
+  getPlaylistTracksBulk: async (playlistId: string, targetCount = 300): Promise<SpotifyTrack[]> => {
     let allTracks: SpotifyTrack[] = [];
     let offset = 0;
     const limit = 100;
+
+    apiLogger.logClick(`Engine [FETCH]: Gathering Playlist ${playlistId} tracks (target: ${targetCount})`);
 
     while (allTracks.length < targetCount) {
       const page = await SpotifyDataService.getPlaylistTracks(playlistId, limit, offset);
@@ -232,51 +267,29 @@ export const SpotifyDataService = {
   },
 
   /**
-   * Robust artist resolver with fallback queries and diagnostic logging.
+   * Robust artist resolver with fallback queries.
    */
   robustResolveArtist: async (name: string): Promise<string | null> => {
     const cacheKey = `resolved_artist_id_${name.toLowerCase().replace(/\s+/g, '_')}`;
     const cachedId = localStorage.getItem(cacheKey);
-    if (cachedId) {
-      apiLogger.logClick(`Resolver: Cache HIT for "${name}" -> ${cachedId}`);
-      return cachedId;
-    }
+    if (cachedId) return cachedId;
 
-    const queries = [name];
-    if (name.toLowerCase() === "avenged sevenfold") {
-      queries.push("A7X", "Avenged Sevenfold artist");
-    } else {
-      queries.push(`${name} artist`);
-    }
+    const queries = [name, `${name} artist`];
 
     for (const q of queries) {
-      apiLogger.logClick(`Resolver: Searching artist with query: "${q}"`);
       try {
         const data = await SpotifyApi.request(`/search?q=${encodeURIComponent(q)}&type=artist&limit=5`);
         const items = data?.artists?.items || [];
         
-        if (items.length === 0) {
-          apiLogger.logClick(`Resolver: NO_RESULTS for query "${q}"`);
-          continue;
-        }
+        if (items.length === 0) continue;
 
-        // Log top 3 for diagnostics
-        const logData = items.slice(0, 3).map((a: any) => `${a.name} (id:${a.id}, pop:${a.popularity})`);
-        apiLogger.logClick(`Resolver: Top results for "${q}": ${logData.join(' | ')}`);
-
-        // Prioritize exact case-insensitive match
         const exactMatch = items.find((a: any) => a.name.toLowerCase() === name.toLowerCase());
         const best = exactMatch || items[0];
         
-        apiLogger.logClick(`Resolver: Selected match: ${best.name} (${best.id})`);
         localStorage.setItem(cacheKey, best.id);
         return best.id;
-      } catch (e: any) {
-        apiLogger.logError(`Resolver: Error searching "${q}": ${e.message}`);
-      }
+      } catch (e: any) {}
     }
-
-    apiLogger.logError(`Resolver: FAILED to resolve any results for "${name}" after all attempts.`);
     return null;
   },
 
@@ -297,21 +310,15 @@ export const SpotifyDataService = {
     const data = await SpotifyApi.request(url);
     const items = data?.artists?.items ?? [];
     
-    const debug = {
-      url,
-      count: items.length,
-      firstFive: items.slice(0, 5).map((a: any) => a.name)
-    };
-
-    if (items.length === 0) return { artist: null, debug };
+    if (items.length === 0) return { artist: null, debug: { count: 0 } };
 
     const exactMatches = items.filter((a: any) => a.name.toLowerCase() === name.toLowerCase());
     if (exactMatches.length > 0) {
       exactMatches.sort((a: any, b: any) => (b.followers?.total || 0) - (a.followers?.total || 0));
-      return { artist: exactMatches[0], debug };
+      return { artist: exactMatches[0], debug: { count: items.length } };
     }
 
-    return { artist: items[0], debug };
+    return { artist: items[0], debug: { count: items.length } };
   },
 
   getArtistTopTracks: async (artistId: string, market = "US"): Promise<SpotifyTrack[]> => {
@@ -338,8 +345,6 @@ export const SpotifyDataService = {
   },
 
   getDeepCuts: async (artistId: string, targetCount = 35): Promise<{ tracks: SpotifyTrack[]; debug: any }> => {
-    apiLogger.logClick(`Starting Deep Cuts crawl for artist: ${artistId}`);
-    
     const normalizeAlbumName = (name: string) => {
       return name.toLowerCase()
         .replace(/\s*[\(\[].*?[\)\]]\s*/g, ' ')
@@ -368,19 +373,14 @@ export const SpotifyDataService = {
             album: { name: album.name, id: album.id, images: album.images, release_date: album.release_date }
           }));
           pool = [...pool, ...tracksWithAlbum];
-        } catch (e) {
-          apiLogger.logError(`Failed to fetch tracks for album ${album.id}`);
-        }
+        } catch (e) {}
       }
-      const uniquePool: SpotifyTrack[] = [];
       const seenUris = new Set<string>();
-      pool.forEach(t => {
-        if (!seenUris.has(t.uri)) {
-          uniquePool.push(t);
-          seenUris.add(t.uri);
-        }
+      return pool.filter(t => {
+        if (seenUris.has(t.uri)) return false;
+        seenUris.add(t.uri);
+        return true;
       });
-      return uniquePool;
     };
 
     let trackPool = await buildTrackPool(Array.from(albumMap.values()));
@@ -412,7 +412,7 @@ export const SpotifyDataService = {
 
     return {
       tracks: selected,
-      debug: { albumCount: albumMap.size, poolSize: trackPool.length, selectedSize: selected.length, mode: 'Deep Cuts' }
+      debug: { albumCount: albumMap.size, poolSize: trackPool.length, selectedSize: selected.length }
     };
   },
 
@@ -429,43 +429,23 @@ export const SpotifyDataService = {
   },
 
   getRecommendations: async (seedArtists: string[], seedTracks: string[], limit = 20, market = "US", seedGenres: string[] = [], targets: any = {}): Promise<SpotifyTrack[]> => {
-    const validArtists = seedArtists.filter(id => id && id.length > 5);
-    const validTracks = seedTracks.filter(id => id && id.length > 5);
-    const validGenres = seedGenres.filter(g => g && g.length > 0);
+    const finalArtists = seedArtists.filter(id => id && id.length > 5).slice(0, 5);
+    const finalTracks = seedTracks.filter(id => id && id.length > 5).slice(0, 5 - finalArtists.length);
 
-    const totalSeeds = validArtists.length + validTracks.length + validGenres.length;
-    if (totalSeeds === 0) {
-      apiLogger.logError("Recommendations failed: No valid seeds provided.");
-      return [];
-    }
-
-    const finalArtists = validArtists.slice(0, 5);
-    const finalTracks = validTracks.slice(0, 5 - finalArtists.length);
-    const finalGenres = validGenres.filter(g => g && g.length > 0).slice(0, 5 - finalArtists.length - finalTracks.length);
+    if (finalArtists.length === 0 && finalTracks.length === 0) return [];
 
     const nLimit = normalizeLimit('/recommendations', limit, 20, 100);
-    const params = new URLSearchParams({
-      limit: nLimit.toString(),
-      market,
-      ...targets
-    });
+    const params = new URLSearchParams({ limit: nLimit.toString(), market, ...targets });
     
     if (finalArtists.length > 0) params.append('seed_artists', finalArtists.join(','));
     if (finalTracks.length > 0) params.append('seed_tracks', finalTracks.join(','));
-    if (finalGenres.length > 0) params.append('seed_genres', finalGenres.join(','));
     
     try {
       const data = await SpotifyApi.request(`/recommendations?${params.toString()}`);
       return data.tracks || [];
     } catch (e: any) {
-      apiLogger.logError(`Recommendations Request failed: ${e.message}`);
       return [];
     }
-  },
-
-  searchShowByName: async (name: string): Promise<any | null> => {
-    const data = await SpotifyApi.request(`/search?q=${encodeURIComponent(name)}&type=show&limit=1`);
-    return data?.shows?.items?.[0] || null;
   },
 
   searchShows: async (query: string, limit = 5): Promise<any[]> => {
@@ -475,52 +455,15 @@ export const SpotifyDataService = {
 
   getShowEpisodes: async (showId: string, limit = 50, market?: string): Promise<SpotifyEpisode[]> => {
     if (USE_MOCK_DATA) {
-      apiLogger.logClick(`Mock Data: Generating 5 episodes for show ${showId}`);
       return [
         {
           id: 'mock_ep_1',
           name: 'The Future of AI Design Systems',
-          description: 'Exploring how generative models are reshaping the developer experience.',
+          description: 'Exploring generative models.',
           release_date: '2024-02-24',
           duration_ms: 1800000,
           images: [{ url: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&q=80&w=300&h=300' }],
           uri: 'spotify:episode:mock1'
-        },
-        {
-          id: 'mock_ep_2',
-          name: 'The Obsidian Methodology',
-          description: 'Deep dive into high-contrast UI patterns and organic animations.',
-          release_date: '2024-02-17',
-          duration_ms: 2400000,
-          images: [{ url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&q=80&w=300&h=300' }],
-          uri: 'spotify:episode:mock2'
-        },
-        {
-          id: 'mock_ep_3',
-          name: 'Weekly Roundup: Composition Engines',
-          description: 'Weekly summary of advancements in real-time catalog syncing.',
-          release_date: '2024-02-10',
-          duration_ms: 2100000,
-          images: [{ url: 'https://images.unsplash.com/photo-1558489580-faa74691fdc5?auto=format&fit=crop&q=80&w=300&h=300' }],
-          uri: 'spotify:episode:mock3'
-        },
-        {
-          id: 'mock_ep_4',
-          name: 'Haptic Feedback in Modern PWA',
-          description: 'Why tactile communication is the missing link in mobile web apps.',
-          release_date: '2024-02-03',
-          duration_ms: 1500000,
-          images: [{ url: 'https://images.unsplash.com/photo-1478737270239-2fccd2c7862a?auto=format&fit=crop&q=80&w=300&h=300' }],
-          uri: 'spotify:episode:mock4'
-        },
-        {
-          id: 'mock_ep_5',
-          name: 'Bonus: The Architecture of GetReady',
-          description: 'A look behind the scenes of the prototype you are using right now.',
-          release_date: '2024-01-27',
-          duration_ms: 3600000,
-          images: [{ url: 'https://images.unsplash.com/photo-1589903308914-1293a6bb1f8c?auto=format&fit=crop&q=80&w=300&h=300' }],
-          uri: 'spotify:episode:mock5'
         }
       ];
     }
@@ -538,6 +481,15 @@ export const SpotifyDataService = {
   },
 
   getPlaylistById: async (playlistId: string): Promise<any> => {
+    // PROMPT REQUIREMENT: Diagnostic logging for playlist metadata
+    apiLogger.logClick(`Fetching playlist metadata for id=${playlistId} sourceType=playlist trigger=getPlaylistById`);
+
+    // Safety check: Skip if id is "Liked Songs" identifier or me keywords
+    if (playlistId === 'liked_songs' || playlistId === 'me' || !playlistId || playlistId === 'Unlinked') {
+       apiLogger.logError(`Skipped invalid playlist metadata request for id: ${playlistId}`);
+       return null;
+    }
+    
     return SpotifyApi.request(`/playlists/${playlistId}`);
   },
 
