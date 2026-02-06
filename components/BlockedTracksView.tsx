@@ -13,6 +13,9 @@ const BlockedTracksView: React.FC<BlockedTracksViewProps> = ({ onBack }) => {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
+    const scroller = document.getElementById('main-content-scroller');
+    if (scroller) scroller.scrollTop = 0;
+    
     setBlocked(BlockStore.getBlocked());
   }, []);
 

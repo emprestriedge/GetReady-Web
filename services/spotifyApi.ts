@@ -7,6 +7,7 @@ import { USE_MOCK_DATA } from '../constants';
 let mockPlaybackState: any = USE_MOCK_DATA ? {
   is_playing: false,
   progress_ms: 45000,
+  currently_playing_type: 'track',
   item: {
     name: 'Midnight City - M83 [Extended Remix]',
     uri: 'spotify:track:1',
@@ -112,7 +113,7 @@ export const SpotifyApi = {
       };
     }
 
-    if (endpoint === '/me/player') return mockPlaybackState;
+    if (endpoint.startsWith('/me/player')) return mockPlaybackState;
 
     if (endpoint.includes('/player/play')) {
       let playedUri = 'spotify:track:mock';
@@ -126,6 +127,7 @@ export const SpotifyApi = {
       mockPlaybackState = {
         is_playing: true,
         progress_ms: 0,
+        currently_playing_type: isEpisode ? 'episode' : 'track',
         item: {
           name: isEpisode ? 'Daily Briefing: The Future of AI' : 'Midnight City - M83 [Extended Remix]',
           uri: playedUri,

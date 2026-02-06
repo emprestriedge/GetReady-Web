@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RunOption, RuleOverride, A7XMode } from '../types';
 import { RuleOverrideStore } from '../services/ruleOverrideStore';
 import { Haptics } from '../services/haptics';
@@ -10,6 +10,11 @@ interface OptionRuleEditorViewProps {
 
 const OptionRuleEditorView: React.FC<OptionRuleEditorViewProps> = ({ option, onBack }) => {
   const [override, setOverride] = useState<RuleOverride>(() => RuleOverrideStore.getForOption(option.id) || {});
+
+  useEffect(() => {
+    const scroller = document.getElementById('main-content-scroller');
+    if (scroller) scroller.scrollTop = 0;
+  }, []);
 
   const update = (key: keyof RuleOverride, value: any) => {
     Haptics.light();

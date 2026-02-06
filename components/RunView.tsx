@@ -198,7 +198,8 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
 
       setResult(runResult);
       setGenStatus('DONE');
-      onComplete(runResult);
+      // FIXED: Use onResultUpdate instead of onComplete to avoid auto-saving to Vault
+      onResultUpdate?.(runResult);
       Haptics.success();
     } catch (err: any) {
       if (reqId === generationRequestId.current) {
@@ -289,7 +290,8 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     
     const pollPlayback = async () => {
       try {
-        const state = await SpotifyApi.request('/me/player');
+        // Updated to include episodes for correct highlight in queue
+        const state = await SpotifyApi.request('/me/player?additional_types=track,episode');
         if (state?.item?.uri) {
           setCurrentPlayingUri(state.item.uri);
         }
@@ -371,6 +373,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
 
     if (namingDestination === 'vault') {
       const updatedResult = { ...result, playlistName: editName.trim() };
+      // Explicitly calling onComplete here triggers the save to Vault persistence in App.tsx
       onComplete(updatedResult);
       toastService.show(`Archived as "${editName.trim()}"`, "success");
       setNamingDestination(null);
@@ -474,7 +477,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       <div className="fixed inset-0 z-[1000] bg-black/95 flex flex-col items-center justify-center p-8 animate-in fade-in duration-300">
         <div className="w-20 h-20 border-4 border-palette-pink border-t-transparent rounded-full animate-spin mb-8" />
         <h2 className="text-4xl font-mango text-[#D1F2EB] mb-2">Composing Mix</h2>
-        <p className="text-zinc-500 font-garet text-center max-w-xs uppercase tracking-widest text-[10px] leading-relaxed">
+        <p className="text-zinc-500 font-garet text-center max-w-xs uppercase tracking-widest text-[10px] architecture-relaxed">
           Syncing local catalog with Spotify cloud database...
         </p>
       </div>
@@ -556,27 +559,27 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       </div>
 
       {viewMode === 'PREVIEW' && (
-        <div className="fixed bottom-0 left-0 right-0 px-6 pt-10 pb-20 bg-gradient-to-t from-black via-black/95 to-transparent z-[100]" style={{ bottom: '85px', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)' }}>
+        <div className="fixed bottom-0 left-0 right-0 px-6 pt-10 pb-10 bg-gradient-to-t from-black via-black/95 to-transparent z-[100]" style={{ bottom: '85px', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 11px)' }}>
           <div className="flex items-center gap-4">
              <button 
                 onClick={handleRegenerate}
-                className="w-16 h-16 rounded-[24px] bg-zinc-900 border border-white/10 flex items-center justify-center text-palette-gold active:scale-95 transition-all shadow-xl"
+                className="w-14 h-14 rounded-[24px] bg-zinc-900 border border-white/10 flex items-center justify-center text-palette-gold active:scale-95 transition-all shadow-xl"
              >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
              </button>
 
              <button 
               onClick={() => { Haptics.heavy(); setShowSaveOptions(true); }}
-              className="flex-1 relative overflow-hidden bg-palette-pink text-white font-black py-5 rounded-[28px] flex items-center justify-center gap-3 active:scale-95 transition-all shadow-2xl shadow-palette-pink/30 border border-white/10"
+              className="flex-1 relative overflow-hidden bg-palette-pink text-white font-black py-3.5 rounded-[24px] flex items-center justify-center gap-3 active:scale-95 transition-all shadow-2xl shadow-palette-pink/30 border border-white/10"
             >
               <div className="absolute top-1 left-2 w-[90%] h-[40%] bg-gradient-to-b from-white/40 to-transparent rounded-full blur-[1px] animate-jelly-shimmer pointer-events-none" />
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-              <span className="text-xl font-garet font-bold uppercase tracking-widest">Save</span>
+              <span className="text-lg font-garet font-bold uppercase tracking-widest">Save</span>
             </button>
 
             <button 
                 onClick={() => { Haptics.medium(); setShowPlayOptions(true); }}
-                className="w-16 h-16 rounded-[24px] bg-zinc-900 border border-white/10 flex items-center justify-center text-palette-teal active:scale-95 transition-all shadow-xl"
+                className="w-14 h-14 rounded-[24px] bg-zinc-900 border border-white/10 flex items-center justify-center text-palette-teal active:scale-95 transition-all shadow-xl"
              >
                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
              </button>

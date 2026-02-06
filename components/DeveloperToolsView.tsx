@@ -45,6 +45,9 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
   ];
 
   useEffect(() => {
+    const scroller = document.getElementById('main-content-scroller');
+    if (scroller) scroller.scrollTop = 0;
+
     coreSlots.forEach(slot => {
       const id = config[slot.key as keyof CatalogConfig];
       if (typeof id === 'string' && id !== 'null' && id) verifyId(slot.key, id, slot.type);
@@ -276,7 +279,7 @@ const DeveloperToolsView: React.FC<DeveloperToolsViewProps> = ({ onBack, onNavig
   };
 
   return (
-    <div className="p-4 animate-in slide-in-from-right duration-300 pb-32">
+    <div className="pt-24 px-4 animate-in slide-in-from-right duration-300 pb-40">
       <header className="mb-8 flex flex-col gap-2 px-2">
         <button onClick={onBack} className="text-palette-pink flex items-center gap-1 font-black text-xs uppercase tracking-widest active:opacity-50">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

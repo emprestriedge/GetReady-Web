@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MUSIC_BUTTONS, PODCAST_OPTIONS } from '../constants';
 import { RunOption } from '../types';
 import OptionRuleEditorView from './OptionRuleEditorView';
@@ -11,6 +11,11 @@ interface PerOptionRulesViewProps {
 
 const PerOptionRulesView: React.FC<PerOptionRulesViewProps> = ({ onBack }) => {
   const [selectedOption, setSelectedOption] = useState<RunOption | null>(null);
+
+  useEffect(() => {
+    const scroller = document.getElementById('main-content-scroller');
+    if (scroller) scroller.scrollTop = 0;
+  }, [selectedOption]);
 
   if (selectedOption) {
     return (

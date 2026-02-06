@@ -21,7 +21,9 @@ const TestDataView: React.FC<TestDataViewProps> = ({ onBack }) => {
   const logContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    window.scrollTo(0, 0);
+    const scroller = document.getElementById('main-content-scroller');
+    if (scroller) scroller.scrollTop = 0;
+
     fetchDiagnosticData();
     
     const stats = localStorage.getItem('spotify_buddy_last_run_stats');
@@ -131,7 +133,7 @@ const TestDataView: React.FC<TestDataViewProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="p-4 animate-in slide-in-from-right duration-300 pb-32">
+    <div className="pt-24 px-4 animate-in slide-in-from-right duration-300 pb-40">
       <header className="mb-10 flex items-center justify-between px-2">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="text-palette-pink font-bold active:scale-90 transition-transform">

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { RuleSettings, RunOption, PodcastShowCandidate } from '../types';
 import { SpotifyDataService } from '../services/spotifyDataService';
 import { ContentIdStore } from '../services/contentIdStore';
@@ -21,6 +21,11 @@ const PodcastManagerView: React.FC<PodcastManagerViewProps> = ({ onBack }) => {
   const [showPicker, setShowPicker] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<PodcastShowCandidate | null>(null);
+
+  useEffect(() => {
+    const scroller = document.getElementById('main-content-scroller');
+    if (scroller) scroller.scrollTop = 0;
+  }, []);
   
   const handleUpdateSlot = (index: number, updates: Partial<RunOption>) => {
     configStore.updatePodcastSlot(index, updates);
@@ -120,7 +125,7 @@ const PodcastManagerView: React.FC<PodcastManagerViewProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="p-4 animate-in slide-in-from-right duration-300 pb-32">
+    <div className="pt-24 px-4 animate-in slide-in-from-right duration-300 pb-40">
       <header className="mb-8 flex flex-col gap-2 px-2">
         <button onClick={onBack} className="text-palette-pink flex items-center gap-1 font-black text-xs uppercase tracking-widest active:opacity-50">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

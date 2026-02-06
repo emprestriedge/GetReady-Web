@@ -23,8 +23,13 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick, onClose
 
   const fetchPlayback = async () => {
     try {
-      const state = await SpotifyApi.request('/me/player');
-      if (state && state.item) {
+      // CRITICAL: Must include additional_types=episode or Spotify returns item: null for podcasts
+      const state = await SpotifyApi.request('/me/player?additional_types=track,episode');
+      
+      const hasValidItem = state && state.item;
+      const isSupportedType = state?.currently_playing_type === 'track' || state?.currently_playing_type === 'episode';
+
+      if (hasValidItem && isSupportedType) {
         if (state.item.uri !== lastTrackUri.current) {
           setIsManuallyDismissed(false);
           lastTrackUri.current = state.item.uri;
@@ -35,6 +40,8 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick, onClose
           setIsVisible(true);
         }
       } else {
+        // One-line debug log as requested
+        console.debug(`[Player] Hidden. Reason: ${!state ? 'No state' : !state.item ? 'No item' : 'Unsupported type'}, Type: ${state?.currently_playing_type || 'none'}`);
         setIsVisible(false);
         setIsManuallyDismissed(false);
       }
@@ -106,10 +113,18 @@ const NowPlayingStrip: React.FC<NowPlayingStripProps> = ({ onStripClick, onClose
 
   const track = playbackState.item;
   const isPlaying = playbackState.is_playing;
+  const isEpisode = playbackState.currently_playing_type === 'episode';
   const deviceName = playbackState.device?.name || 'Spotify Device';
   
-  const imageUrl = track.album?.images?.[0]?.url || track.images?.[0]?.url;
-  const artistName = track.artists?.[0]?.name || track.show?.name || 'Spotify';
+  // Episode support: use track.images or track.show.images for artwork
+  const imageUrl = isEpisode 
+    ? (track.images?.[0]?.url || track.show?.images?.[0]?.url) 
+    : track.album?.images?.[0]?.url;
+
+  // Episode support: use show name for subtitle
+  const artistName = isEpisode 
+    ? track.show?.name 
+    : (track.artists?.[0]?.name || 'Spotify');
   
   const progressMs = playbackState.progress_ms || 0;
   const durationMs = track.duration_ms || 1;

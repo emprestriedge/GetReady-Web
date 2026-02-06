@@ -30,6 +30,9 @@ const RapSourcesView: React.FC<RapSourcesViewProps> = ({ onBack }) => {
   const [pickerLoading, setPickerLoading] = useState(false);
 
   useEffect(() => {
+    const scroller = document.getElementById('main-content-scroller');
+    if (scroller) scroller.scrollTop = 0;
+
     const unsub = configStore.subscribe(() => {
       setConfig(configStore.getConfig());
     });
