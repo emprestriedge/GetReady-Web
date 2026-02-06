@@ -1,4 +1,3 @@
-
 import { SpotifyTokensV1 } from './authStore';
 import { apiLogger } from './apiLogger';
 import { authStore } from './authStore';
@@ -20,6 +19,9 @@ export interface AuthDiagnostic {
   };
 }
 
+// SCOPE VERSIONING: Increment this to force all users to re-login for new permissions.
+const SCOPE_VERSION = 'v2'; 
+
 export const SCOPES = [
   'user-read-private',
   'user-read-email',
@@ -31,6 +33,7 @@ export const SCOPES = [
   'playlist-modify-private',
   'user-read-playback-state',
   'user-modify-playback-state',
+  'user-read-currently-playing',
   'streaming'
 ].join(' ');
 
@@ -51,13 +54,8 @@ export const SpotifyAuth = {
     authStore.saveClientId(id);
   },
 
-  /**
-   * getRedirectUri - Returns the dynamic URI based on current environment.
-   * Ensures the OAuth flow is portable across different hostnames.
-   */
   getRedirectUri: () => {
     const origin = window.location.origin;
-    // Add trailing slash if not present to match standard Spotify settings
     return origin.endsWith('/') ? origin : `${origin}/`;
   },
 
@@ -80,9 +78,6 @@ export const SpotifyAuth = {
       .replace(/=+$/, '');
   },
 
-  /**
-   * login - Always uses a full-page redirect to handle standalone PWA mode.
-   */
   login: async () => {
     const clientId = SpotifyAuth.getClientId();
     if (!clientId) {
@@ -95,9 +90,9 @@ export const SpotifyAuth = {
     const state = SpotifyAuth.generateRandomString(16);
     const redirectUri = SpotifyAuth.getRedirectUri();
 
-    // Use localStorage to survive the redirect/PWA context switch
     localStorage.setItem('spotify_pkce_verifier', codeVerifier);
     localStorage.setItem('spotify_auth_state', state);
+    localStorage.setItem('spotify_scope_version', SCOPE_VERSION);
 
     const params = new URLSearchParams({
       response_type: 'code',
@@ -110,7 +105,7 @@ export const SpotifyAuth = {
     });
 
     const url = `https://accounts.spotify.com/authorize?${params.toString()}`;
-    apiLogger.logClick(`Auth: Initiating full-page redirect to Spotify`);
+    apiLogger.logClick(`Auth: Initiating full-page redirect (Scope: ${SCOPE_VERSION})`);
     window.location.href = url;
   },
 
@@ -162,6 +157,14 @@ export const SpotifyAuth = {
   },
 
   getValidAccessToken: async (): Promise<string | null> => {
+    // FORCE LOGOUT if scope version changed
+    const currentVer = localStorage.getItem('spotify_scope_version');
+    if (currentVer !== SCOPE_VERSION && localStorage.getItem('spotify.connected.v1') === 'true') {
+      console.warn("Auth: Scope update required. Forcing re-login.");
+      SpotifyAuth.logout();
+      return null;
+    }
+
     const auth = authStore.loadAuth();
     if (!auth.tokens) return null;
 
@@ -229,6 +232,5 @@ export const SpotifyAuth = {
 
   setReady: (val: boolean) => { authReady = val; },
   logout: () => { authStore.clearAuth(); window.location.reload(); },
-  // FIXED: Added hardReset method to SpotifyAuth to match components usage
   hardReset: () => { authStore.hardReset(); }
 };

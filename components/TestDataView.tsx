@@ -67,14 +67,15 @@ const TestDataView: React.FC<TestDataViewProps> = ({ onBack }) => {
 
   const copyDebugInfo = () => {
     Haptics.light();
+    // PROMPT REQUIREMENT: Copy the last 200 log lines to clipboard
     const info = {
       auth: diag,
       devices: devices,
       lastRun: lastRunStats,
-      logs: logs.slice(0, 50)
+      logs: logs.slice(0, 200) // logs is already reversed, so slice(0, 200) is the 200 newest entries
     };
     navigator.clipboard.writeText(JSON.stringify(info, null, 2));
-    alert("Debug bundle copied to clipboard.");
+    alert("Debug bundle (including last 200 logs) copied to clipboard.");
   };
 
   const renderBootSection = () => {

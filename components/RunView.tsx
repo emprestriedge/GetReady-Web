@@ -204,7 +204,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
 
   /**
    * injectMixToDevice - Forcefully pushes the full composition into the target Spotify device.
-   * Centralized helper for all injection and transfer paths.
+   * Now uses the robust playUrisWithRetry logic.
    */
   const injectMixToDevice = async (targetDeviceId?: string) => {
     if (!result?.tracks || result.tracks.length === 0) {
@@ -213,32 +213,21 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     }
 
     try {
-      const rawUris = result.tracks.map(t => t.uri);
-      const uris = rawUris.filter(uri => /^spotify:(track|episode):[a-zA-Z0-9]+$/.test(uri));
-      
-      if (uris.length === 0) {
-        toastService.show("No valid tracks in mix", "warning");
-        return;
-      }
-
+      const uris = result.tracks.map(t => t.uri);
       let offsetIndex = 0;
+      
       if (currentPlayingUri) {
         const foundIdx = result.tracks.findIndex(t => t.uri === currentPlayingUri);
-        if (foundIdx !== -1) {
-          const sanitizedIdx = uris.indexOf(result.tracks[foundIdx].uri);
-          if (sanitizedIdx !== -1) offsetIndex = sanitizedIdx;
-        }
+        if (foundIdx !== -1) offsetIndex = foundIdx;
       }
 
-      const deviceId = await spotifyPlayback.ensureActiveDevice(targetDeviceId);
-      await spotifyPlayback.setShuffle(false, deviceId);
-      await spotifyPlayback.playUrisOnDevice(deviceId, uris, offsetIndex);
+      await spotifyPlayback.playUrisWithRetry(uris, targetDeviceId, offsetIndex);
       
       const feedbackMsg = targetDeviceId ? "Playback switched & Mix loaded" : "Mix loaded into Spotify";
       toastService.show(feedbackMsg, "success");
     } catch (err: any) {
       console.error("Injection Error:", err);
-      toastService.show(err.message || "Sync failed. Tapping 'Source' may help.", "info");
+      // Detailed error is handled inside playUrisWithRetry via toast
     }
   };
 

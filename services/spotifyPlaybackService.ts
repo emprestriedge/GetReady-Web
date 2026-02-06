@@ -5,19 +5,19 @@ import { toastService } from './toastService';
 
 class SpotifyPlaybackService {
   async ensureActiveDevice(targetDeviceId?: string): Promise<string> {
-    if (targetDeviceId) {
-      await this.transferPlayback(targetDeviceId, true);
-      return targetDeviceId;
-    }
-
     const devices = await SpotifyApi.getDevices();
     const active = devices.find(d => d.is_active);
-    const chosen = active || devices[0];
+    
+    // If target provided and it's active, return it
+    if (targetDeviceId && active?.id === targetDeviceId) return targetDeviceId;
+    
+    // If none active, pick target or first available
+    const chosen = targetDeviceId || active?.id || devices[0]?.id;
 
     if (!chosen) throw new Error("Open Spotify on a device and try again.");
 
-    await this.transferPlayback(chosen.id, true);
-    return chosen.id;
+    await this.transferPlayback(chosen, false);
+    return chosen;
   }
 
   async transferPlayback(deviceId: string, play: boolean = true): Promise<void> {
@@ -27,36 +27,76 @@ class SpotifyPlaybackService {
     });
   }
 
+  /**
+   * playUrisWithRetry - Robust injection that handles Spotify background delays.
+   * This implements the requested transfer -> wait -> play -> retry pattern.
+   */
+  async playUrisWithRetry(uris: string[], targetDeviceId?: string, offsetIndex?: number): Promise<void> {
+    const retryDelays = [600, 900, 1200, 1500, 1800, 2100];
+    let attempt = 0;
+
+    const execute = async (deviceId: string): Promise<void> => {
+      const pattern = /^spotify:(track|episode):[a-zA-Z0-9]+$/;
+      const safeUris = uris.filter(u => pattern.test(u));
+      
+      if (safeUris.length === 0) throw new Error("No valid tracks to play.");
+
+      const body: any = { uris: safeUris };
+      if (offsetIndex !== undefined) {
+        body.offset = { position: offsetIndex };
+      }
+
+      await SpotifyApi.request(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
+        method: 'PUT',
+        body: JSON.stringify(body)
+      });
+    };
+
+    while (attempt <= retryDelays.length) {
+      try {
+        apiLogger.logClick(`[PLAYBACK] Attempt ${attempt + 1}: Resolving device...`);
+        const devices = await SpotifyApi.getDevices();
+        const active = devices.find(d => d.is_active);
+        const deviceToUse = targetDeviceId || active?.id || devices[0]?.id;
+
+        if (!deviceToUse) {
+          throw { status: 404, message: "No Spotify devices found. Open Spotify first." };
+        }
+
+        // Handshake: Transfer (if not active or first attempt)
+        if (!active || active.id !== deviceToUse || attempt === 0) {
+          apiLogger.logClick(`[PLAYBACK] Handshake: Transferring to ${deviceToUse}`);
+          await this.transferPlayback(deviceToUse, false);
+          // Wait for device to "wake up"
+          await new Promise(r => setTimeout(r, 1000));
+        }
+
+        await execute(deviceToUse);
+        apiLogger.logClick(`[PLAYBACK] Success on attempt ${attempt + 1}`);
+        return; // Success!
+
+      } catch (err: any) {
+        const is404 = err.status === 404 || (err.message && err.message.includes('404'));
+        
+        if (is404 && attempt < retryDelays.length) {
+          const delay = retryDelays[attempt];
+          apiLogger.logClick(`[PLAYBACK] Device not found (404). Retrying in ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+          attempt++;
+        } else {
+          // Terminal error or non-retryable
+          const msg = `Playback Injection Failed (${err.status || 'ERR'}): ${err.message || 'Unknown Spotify error'}`;
+          apiLogger.logError(msg);
+          toastService.show(msg, "error");
+          throw err;
+        }
+      }
+    }
+  }
+
   async playUrisOnDevice(deviceId: string, uris: string[], offsetIndex?: number): Promise<void> {
-    // SURGICAL SANITIZATION
-    const originalUris = uris || [];
-    const pattern = /^spotify:(track|episode):[a-zA-Z0-9]+$/;
-    
-    const safeUris = originalUris
-      .map(u => (u || "").trim())
-      .filter(u => u !== "" && pattern.test(u));
-
-    const rejected = originalUris.filter(u => !safeUris.includes(u.trim()));
-
-    // DEBUG LOGS - PIPED TO ON-SCREEN BUFFER
-    apiLogger.logClick(`[PLAYBACK DEBUG] deviceId=${deviceId} originalCount=${originalUris.length} safeCount=${safeUris.length} first5=${safeUris.slice(0, 5).join(', ')}`);
-    apiLogger.logClick(`[PLAYBACK DEBUG] rejectedExamples=${rejected.slice(0, 5).join(', ')}`);
-
-    if (safeUris.length === 0) {
-      toastService.show("No valid Spotify items to play. Please re-sync or reselect source.", "error");
-      return;
-    }
-
-    const body: any = { uris: safeUris };
-    if (offsetIndex !== undefined) {
-      body.offset = { position: offsetIndex };
-    }
-
-    // SURGICAL FIX: Encode device_id to prevent URL pattern errors
-    await SpotifyApi.request(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
-      method: 'PUT',
-      body: JSON.stringify(body)
-    });
+    // Legacy support wrapper
+    return this.playUrisWithRetry(uris, deviceId, offsetIndex);
   }
 
   async setShuffle(state: boolean, deviceId?: string): Promise<void> {
