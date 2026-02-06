@@ -34,7 +34,7 @@ const OptionRuleEditorView: React.FC<OptionRuleEditorViewProps> = ({ option, onB
   };
 
   return (
-    <div className="p-4 animate-in fade-in duration-300 pb-32">
+    <div className="pt-24 p-4 animate-in fade-in duration-300 pb-32">
       <header className="mb-10 flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <button 
