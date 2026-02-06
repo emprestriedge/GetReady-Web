@@ -49,19 +49,20 @@ class SpotifyPlaybackService {
 
     const body: any = { uris: safeUris };
     if (offsetIndex !== undefined) {
-      // Note: If tracks were removed, the offset position might need adjustment,
-      // but we maintain existing logic for surgical consistency.
       body.offset = { position: offsetIndex };
     }
 
-    await SpotifyApi.request(`/me/player/play?device_id=${deviceId}`, {
+    // SURGICAL FIX: Encode device_id to prevent URL pattern errors
+    await SpotifyApi.request(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
       method: 'PUT',
       body: JSON.stringify(body)
     });
   }
 
   async setShuffle(state: boolean, deviceId?: string): Promise<void> {
-    const query = deviceId ? `?device_id=${deviceId}&state=${state}` : `?state=${state}`;
+    const query = deviceId 
+      ? `?device_id=${encodeURIComponent(deviceId)}&state=${state}` 
+      : `?state=${state}`;
     await SpotifyApi.request(`/me/player/shuffle${query}`, { method: 'PUT' });
   }
 

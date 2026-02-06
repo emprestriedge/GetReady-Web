@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RunOption, RuleSettings, RunResult, RunOptionType, SpotifyDevice, Track, PodcastShowCandidate } from '../types';
 import { RuleOverrideStore } from '../services/ruleOverrideStore';
@@ -17,6 +16,7 @@ import QuickSourceModal from './QuickSourceModal';
 import { StatusAsterisk } from './HomeView';
 import { toastService } from '../services/toastService';
 import { USE_MOCK_DATA } from '../constants';
+import { spotifyUriToOpenUrl } from '../utils/spotifyDeepLink';
 
 interface RunViewProps {
   option: RunOption;
@@ -213,39 +213,25 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     }
 
     try {
-      // 1. Collect & Sanitize URIs
       const rawUris = result.tracks.map(t => t.uri);
       const uris = rawUris.filter(uri => /^spotify:(track|episode):[a-zA-Z0-9]+$/.test(uri));
       
-      const filteredCount = rawUris.length - uris.length;
-      if (filteredCount > 0) {
-        const removed = rawUris.filter(u => !uris.includes(u));
-        console.warn(`[Sanitizer] Filtered ${filteredCount} invalid URIs:`, removed);
-      }
-
       if (uris.length === 0) {
         toastService.show("No valid tracks in mix", "warning");
         return;
       }
 
-      // 2. Determine correct offset to maintain place in mix
       let offsetIndex = 0;
       if (currentPlayingUri) {
         const foundIdx = result.tracks.findIndex(t => t.uri === currentPlayingUri);
         if (foundIdx !== -1) {
-          // Verify current track uri exists in our sanitized list
           const sanitizedIdx = uris.indexOf(result.tracks[foundIdx].uri);
           if (sanitizedIdx !== -1) offsetIndex = sanitizedIdx;
         }
       }
 
-      // 3. Official device handshake / session transfer
       const deviceId = await spotifyPlayback.ensureActiveDevice(targetDeviceId);
-      
-      // 4. Predictable ordering: Disable Spotify native shuffle
       await spotifyPlayback.setShuffle(false, deviceId);
-      
-      // 5. Hard-inject the URI list into the device's hardware queue
       await spotifyPlayback.playUrisOnDevice(deviceId, uris, offsetIndex);
       
       const feedbackMsg = targetDeviceId ? "Playback switched & Mix loaded" : "Mix loaded into Spotify";
@@ -257,23 +243,42 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   };
 
   /**
-   * Visibility Hook - Detects when the user returns to the app from the Spotify wake-up call.
+   * Return Detection - Uses multiple events and a fail-safe timer for reliable background injection.
    */
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && pendingInject) {
+    let fallbackTimer: any = null;
+
+    const performInjection = () => {
+      if (pendingInject) {
         setPendingInject(false);
-        // Delay slightly (1.2s) to allow the deep-link started session 
-        // to register as "Active" in Spotify's cloud state.
+        if (fallbackTimer) clearTimeout(fallbackTimer);
+        // Wait for Spotify background session to fully activate
         setTimeout(() => injectMixToDevice(), 1200);
       }
     };
 
-    window.addEventListener('focus', handleVisibilityChange);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        performInjection();
+      }
+    };
+
+    const handleFocus = () => {
+      performInjection();
+    };
+
+    if (pendingInject) {
+      window.addEventListener('focus', handleFocus);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      
+      // 6-second Fail-safe: If visibility/focus doesn't trigger (e.g. split view or weird webview), try anyway.
+      fallbackTimer = setTimeout(performInjection, 6000);
+    }
+
     return () => {
-      window.removeEventListener('focus', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (fallbackTimer) clearTimeout(fallbackTimer);
     };
   }, [pendingInject, result, currentPlayingUri]);
 
@@ -299,22 +304,18 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
   }, [option, rules, initialResult]);
 
   /**
-   * handleWakeUpCall - Uses a Deep Link to open Spotify.
-   * Sets the pendingInject flag to synchronize the full queue upon return.
+   * handleWakeUpCall - Uses standard web location launch with reliability conversion.
    */
-  const handleWakeUpCall = () => {
+  const handleWakeUpCall = async () => {
     if (!result?.tracks || result.tracks.length === 0) return;
     Haptics.heavy();
     
     const firstTrack = result.tracks[0];
-    
-    // 1. Mark for automatic injection when user flips back to app
     setPendingInject(true);
 
-    // 2. Open Spotify via Deep Link
-    window.location.href = firstTrack.uri;
+    const url = spotifyUriToOpenUrl(firstTrack.uri);
+    window.location.href = url;
     
-    // 3. UI Transition
     setViewMode('QUEUE');
     onPlayTriggered?.();
     setShowPlayOptions(false);
@@ -325,7 +326,8 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     Haptics.heavy();
     
     if (USE_MOCK_DATA) {
-      window.location.href = result.tracks[0].uri;
+      const url = spotifyUriToOpenUrl(result.tracks[0].uri);
+      window.location.href = url;
       setViewMode('QUEUE');
       onPlayTriggered?.();
       return;
@@ -341,8 +343,8 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       const playlist = await SpotifyDataService.createPlaylist(user.id, mixName, desc);
       await SpotifyDataService.replacePlaylistTracks(playlist.id, result.tracks.map(t => t.uri));
       
-      // Execute deep link to the newly created playlist
-      window.location.href = `spotify:playlist:${playlist.id}`;
+      const playlistUrl = spotifyUriToOpenUrl(`spotify:playlist:${playlist.id}`);
+      window.location.href = playlistUrl;
       
       setViewMode('QUEUE');
       onPlayTriggered?.();
@@ -484,10 +486,8 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                   onClick={() => {
                     Haptics.impactAsync(ImpactFeedbackStyle.Light);
                     if (viewMode === 'PREVIEW') {
-                      // TOP Header Button: The Wake Up Call
                       handleWakeUpCall();
                     } else {
-                      // TOP Header Button (QUEUE mode): Takes Control
                       handleOpenDevicePicker(); 
                     }
                   }}
@@ -530,7 +530,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       {viewMode === 'PREVIEW' && (
         <div className="fixed bottom-0 left-0 right-0 px-6 pt-10 pb-20 bg-gradient-to-t from-black via-black/95 to-transparent z-[100]" style={{ bottom: '85px', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)' }}>
           <div className="flex items-center gap-4">
-             {/* Button 3: Regenerate (Icon Only) - Left */}
              <button 
                 onClick={handleRegenerate}
                 className="w-16 h-16 rounded-[24px] bg-zinc-900 border border-white/10 flex items-center justify-center text-palette-gold active:scale-95 transition-all shadow-xl"
@@ -538,7 +537,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
              </button>
 
-             {/* Button 1: Play (Text, Large, Prominent) - Center */}
              <button 
               onClick={() => { Haptics.heavy(); setShowPlayOptions(true); }}
               className="flex-1 relative overflow-hidden bg-palette-pink text-white font-black py-5 rounded-[28px] flex items-center justify-center gap-3 active:scale-95 transition-all shadow-2xl shadow-palette-pink/30 border border-white/10"
@@ -548,7 +546,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
               <span className="text-xl font-garet font-bold uppercase tracking-widest">Play</span>
             </button>
 
-            {/* Button 2: Save (Icon Only) - Right */}
             <button 
                 onClick={() => { Haptics.medium(); setShowSaveOptions(true); }}
                 className="w-16 h-16 rounded-[24px] bg-zinc-900 border border-white/10 flex items-center justify-center text-palette-teal active:scale-95 transition-all shadow-xl"
@@ -559,7 +556,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         </div>
       )}
 
-      {/* Play Selection Modal */}
       {showPlayOptions && (
         <div className="fixed inset-0 z-[10001] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowPlayOptions(false)}>
           <div className="bg-zinc-900 border border-white/10 rounded-[44px] p-8 w-full max-sm:p-6 w-full max-w-sm flex flex-col gap-6 shadow-2xl animate-in zoom-in duration-300" onClick={foundEvent => foundEvent.stopPropagation()}>
@@ -596,7 +592,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         </div>
       )}
 
-      {/* Save Selection Modal */}
       {showSaveOptions && (
         <div className="fixed inset-0 z-[10001] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowSaveOptions(false)}>
           <div className="bg-zinc-900 border border-white/10 rounded-[44px] p-8 w-full max-sm:p-6 w-full max-w-sm flex flex-col gap-6 shadow-2xl animate-in zoom-in duration-500" onClick={foundEvent => foundEvent.stopPropagation()}>
@@ -632,7 +627,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
             onSelect={async (selectedDeviceId) => { 
               setShowDevicePicker(false); 
               Haptics.success();
-              // Re-inject full mix onto the newly selected device
               await injectMixToDevice(selectedDeviceId);
             }} 
             onClose={() => setShowDevicePicker(false)} 
@@ -646,7 +640,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
             onClose={() => setShowQuickSource(false)} 
             onTransfer={async (foundDeviceId) => {
               setShowQuickSource(false);
-              // Official transfer and re-assertion of the GetReady mix context
               await injectMixToDevice(foundDeviceId);
               Haptics.success();
             }}
