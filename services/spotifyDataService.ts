@@ -195,14 +195,17 @@ export const SpotifyDataService = {
 
     try {
       const nLimit = normalizeLimit(`/playlists/${playlistId}/tracks`, limit, 50, 100);
-      const data = await SpotifyApi.request(`/playlists/${playlistId}/tracks?limit=${nLimit}&offset=${offset}`);
+      // Use silent: true to suppress the automatic global error toast from SpotifyApi.request
+      const data = await SpotifyApi.request(`/playlists/${playlistId}/tracks?limit=${nLimit}&offset=${offset}`, { silent: true } as any);
       return data.items.map((item: any) => item.track).filter((t: any) => t !== null);
     } catch (e: any) {
       if (e.status === 404) {
-        apiLogger.logClick(`[PLAYBACK ERROR] playlist fetch failed status=404 id=${playlistId}`);
-        toastService.show("Couldn’t load that playlist from Spotify (404).", "error");
-        throw new Error("STOP_FLOW_404");
+        // Surgically handle the 404 case without toasting or halting the flow.
+        apiLogger.logClick(`[SILENT FALLBACK] Playlist 404 for id=${playlistId}. Redirecting to Liked Songs.`);
+        return await SpotifyDataService.getLikedTracks(limit);
       }
+      // Re-trigger toast for other non-silent errors (like 500s) if needed, or just throw
+      toastService.show(`Spotify error ${e.status || 'ERR'}: ${e.message}`, "error");
       throw e;
     }
   },

@@ -78,8 +78,10 @@ export const SpotifyApi = {
       const diagnosticMsg = `[${response.status}] ${method} ${url} | Body: ${bodySnippet}`;
       apiLogger.logError(diagnosticMsg);
       
-      // User-visible toast banner
-      toastService.show(`Spotify error ${response.status}: ${errorMessage}`, "error");
+      // User-visible toast banner (Surgically skip if 'silent' flag is set)
+      if (!(options as any).silent) {
+        toastService.show(`Spotify error ${response.status}: ${errorMessage}`, "error");
+      }
 
       const error: any = new Error(errorMessage);
       error.status = response.status;

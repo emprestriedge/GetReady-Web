@@ -559,7 +559,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       </div>
 
       {viewMode === 'PREVIEW' && (
-        <div className="fixed bottom-0 left-0 right-0 px-6 pt-10 pb-10 bg-gradient-to-t from-black via-black/95 to-transparent z-[100]" style={{ bottom: '85px', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 11px)' }}>
+        <div className="fixed bottom-0 left-0 right-0 px-6 pt-10 pb-3 bg-gradient-to-t from-black via-black/95 to-transparent z-[100]" style={{ bottom: '85px' }}>
           <div className="flex items-center gap-4">
              <button 
                 onClick={handleRegenerate}
