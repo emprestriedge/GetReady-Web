@@ -310,7 +310,12 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     Haptics.heavy();
     
     const firstTrack = result.tracks[0];
-    setPendingInject(true);
+    
+    // SURGICAL FIX: Only use API injection for Music.
+    // Podcasts rely on Spotify's deep-link to start playback, avoiding 502 loop on return.
+    if (option.type === RunOptionType.MUSIC) {
+      setPendingInject(true);
+    }
 
     const url = spotifyUriToOpenUrl(firstTrack.uri);
     window.location.href = url;

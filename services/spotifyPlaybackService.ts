@@ -28,11 +28,12 @@ class SpotifyPlaybackService {
   }
 
   /**
-   * playUrisWithRetry - Robust injection that handles Spotify background delays.
+   * playUrisWithRetry - Robust injection that handles Spotify background delays and transient infrastructure errors.
    * This implements the requested transfer -> wait -> play -> retry pattern.
    */
   async playUrisWithRetry(uris: string[], targetDeviceId?: string, offsetIndex?: number): Promise<void> {
     const retryDelays = [600, 900, 1200, 1500, 1800, 2100];
+    const transient5xxDelays = [400, 900, 1500]; // Specific backoff for 5xx
     let attempt = 0;
 
     const execute = async (deviceId: string): Promise<void> => {
@@ -77,15 +78,19 @@ class SpotifyPlaybackService {
 
       } catch (err: any) {
         const is404 = err.status === 404 || (err.message && err.message.includes('404'));
+        const is5xx = [502, 503, 504].includes(err.status);
         
-        if (is404 && attempt < retryDelays.length) {
-          const delay = retryDelays[attempt];
-          apiLogger.logClick(`[PLAYBACK] Device not found (404). Retrying in ${delay}ms...`);
+        if ((is404 || is5xx) && attempt < (is5xx ? transient5xxDelays.length : retryDelays.length)) {
+          const delay = is5xx ? transient5xxDelays[attempt] : retryDelays[attempt];
+          apiLogger.logClick(`[PLAYBACK] Spotify error ${err.status}. Retrying in ${delay}ms...`);
           await new Promise(r => setTimeout(r, delay));
           attempt++;
         } else {
           // Terminal error or non-retryable
-          const msg = `Playback Injection Failed (${err.status || 'ERR'}): ${err.message || 'Unknown Spotify error'}`;
+          const msg = is5xx 
+            ? "Spotify is temporarily unavailable. Try again."
+            : `Playback Injection Failed (${err.status || 'ERR'}): ${err.message || 'Unknown Spotify error'}`;
+          
           apiLogger.logError(msg);
           toastService.show(msg, "error");
           throw err;
