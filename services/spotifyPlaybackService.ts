@@ -5,9 +5,39 @@ import { toastService } from './toastService';
 
 class SpotifyPlaybackService {
   /**
-   * ensureDeviceVisibleAndActive - Polls for a device to appear in the list.
-   * Target for podcasts is typically the current smartphone.
+   * handshakeDevice - Specialized polling for podcasts.
+   * Ensures the Spotify API "sees" the device as the active player before we send a Play command.
    */
+  private async handshakeDevice(targetDeviceId: string, maxAttempts: number = 8): Promise<boolean> {
+    apiLogger.logClick(`[HANDSHAKE] Starting device handshake for ${targetDeviceId}...`);
+    
+    // 1. Force a transfer with play:false to anchor the session
+    try {
+      await this.transferPlayback(targetDeviceId, false);
+    } catch (e) {
+      return false;
+    }
+
+    // 2. Poll until /me/player returns 200 AND matches our device
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        // Must include episode type to get a 200 back for podcast sessions
+        const state = await SpotifyApi.request('/me/player?additional_types=track,episode', { silent: true } as any);
+        
+        if (state && state.device && state.device.id === targetDeviceId) {
+          apiLogger.logClick(`[HANDSHAKE] Success on attempt ${i + 1}. Device confirmed active.`);
+          return true;
+        }
+      } catch (e) {
+        // Ignore errors during handshake polling
+      }
+      await new Promise(r => setTimeout(r, 600));
+    }
+
+    apiLogger.logClick(`[HANDSHAKE] Failed after ${maxAttempts} attempts.`);
+    return false;
+  }
+
   async ensureDeviceVisibleAndActive(targetDeviceId?: string, maxWaitMs: number = 6000): Promise<string | null> {
     const startTime = Date.now();
     apiLogger.logClick(`[DEVICE] Polling for device visibility (target: ${targetDeviceId || 'smartphone'})...`);
@@ -16,7 +46,6 @@ class SpotifyPlaybackService {
       try {
         const devices = await SpotifyApi.getDevices();
         
-        // Match logic: specific ID, or currently active, or first smartphone/iPhone
         const found = targetDeviceId 
           ? devices.find(d => d.id === targetDeviceId)
           : devices.find(d => d.is_active) || devices.find(d => d.type.toLowerCase() === 'smartphone' || d.name.toLowerCase().includes('iphone'));
@@ -25,7 +54,6 @@ class SpotifyPlaybackService {
           if (!found.is_active) {
             apiLogger.logClick(`[DEVICE] Found ${found.name}. Activating...`);
             await this.transferPlayback(found.id, false);
-            // Wait for Spotify to acknowledge transfer
             await new Promise(r => setTimeout(r, 400));
           }
           return found.id;
@@ -33,7 +61,6 @@ class SpotifyPlaybackService {
       } catch (e) {
         apiLogger.logError("Polling devices failed");
       }
-      // Poll every 500ms as requested
       await new Promise(r => setTimeout(r, 500));
     }
     
@@ -61,14 +88,13 @@ class SpotifyPlaybackService {
     });
   }
 
-  /**
-   * playUrisWithRetry - Injection with specific 5xx backoff logic.
-   */
   async playUrisWithRetry(uris: string[], targetDeviceId?: string, offsetIndex?: number): Promise<void> {
+    const isPodcast = uris.some(u => u.includes(':episode:'));
     const transient5xxDelays = [400, 900, 1500];
     let attempt = 0;
+    let hasRetriedHandshake = false;
 
-    const execute = async (deviceId: string): Promise<void> => {
+    const executePlay = async (deviceId: string): Promise<void> => {
       const pattern = /^spotify:(track|episode):[a-zA-Z0-9]+$/;
       const safeUris = uris.filter(u => pattern.test(u));
       
@@ -83,36 +109,63 @@ class SpotifyPlaybackService {
         body.offset = { position: offsetIndex };
       }
 
+      // Use silent: true so we can handle the 404/204 state locally without a generic toast surfacing immediately
       await SpotifyApi.request(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
         method: 'PUT',
-        body: JSON.stringify(body)
-      });
+        body: JSON.stringify(body),
+        silent: true 
+      } as any);
     };
 
-    while (true) {
+    const deviceToUse = targetDeviceId || await this.ensureDeviceVisibleAndActive();
+    if (!deviceToUse) {
+      throw new Error("No available Spotify device found.");
+    }
+
+    if (isPodcast) {
+      await this.handshakeDevice(deviceToUse);
+    }
+
+    while (attempt < 4) {
       try {
-        const deviceToUse = targetDeviceId || await this.ensureActiveDevice();
-        await execute(deviceToUse);
+        await executePlay(deviceToUse);
         return;
       } catch (err: any) {
         const is5xx = [502, 503, 504].includes(err.status);
-        const canRetry = is5xx && attempt < transient5xxDelays.length;
+        const is404 = err.status === 404;
 
-        if (canRetry) {
+        if (is5xx && attempt < transient5xxDelays.length) {
           const delay = transient5xxDelays[attempt];
           apiLogger.logClick(`[PLAYBACK] Spotify ${err.status}. Retry ${attempt + 1} in ${delay}ms...`);
           await new Promise(r => setTimeout(r, delay));
           attempt++;
-        } else {
-          // Final failure: show one toast
-          const msg = is5xx 
-            ? "Spotify is temporarily unavailable. Try again."
-            : `Playback Injection Failed: ${err.message || 'Unknown error'}`;
-          
-          apiLogger.logError(msg);
-          toastService.show(msg, "error");
-          throw err;
+          continue;
         }
+
+        // Handle the specific Podcast 404 (Device/Player Inactive)
+        if (is404 && isPodcast && !hasRetriedHandshake) {
+          apiLogger.logClick(`[PLAYBACK] Podcast 404 detected. Retrying handshake...`);
+          hasRetriedHandshake = true;
+          await this.handshakeDevice(deviceToUse);
+          attempt++;
+          continue;
+        }
+
+        // Final failure handling
+        if (is404 && isPodcast) {
+           const msg = "Open Spotify on your iPhone and press Play once, then return and tap Play again.";
+           apiLogger.logError(`Podcast Injection Failed (Permanent 404): ${msg}`);
+           toastService.show(msg, "warning");
+           throw err;
+        }
+
+        const msg = is5xx 
+          ? "Spotify is temporarily unavailable. Try again."
+          : `Playback Injection Failed: ${err.message || 'Unknown error'}`;
+        
+        apiLogger.logError(msg);
+        toastService.show(msg, "error");
+        throw err;
       }
     }
   }
