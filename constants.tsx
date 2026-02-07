@@ -1,4 +1,3 @@
-
 import { RunOption, RunOptionType, RuleSettings, Track, RunRecord } from './types';
 
 // Enabled Demo Mode for UI testing
@@ -8,7 +7,7 @@ export const SMART_MIX_MODES: RunOption[] = [
   { id: 'zen_mix', name: 'Zen', type: RunOptionType.MUSIC, description: 'A calming selection of acoustic and light tracks.' },
   { id: 'focus_mix', name: 'Focus', type: RunOptionType.MUSIC, description: 'Deep concentration with minimal vocals.' },
   { id: 'chaos_mix', name: 'Chaos', type: RunOptionType.MUSIC, description: 'High energy, high discovery, unpredictable.' },
-  { id: 'lightening_mix', name: 'Flash', type: RunOptionType.MUSIC, description: 'Fast-paced, hard-hitting tracks.' },
+  { id: 'lightening_mix', name: 'Lightning⚡️', type: RunOptionType.MUSIC, description: 'Fast-paced, hard-hitting tracks.' },
 ];
 
 export const MUSIC_BUTTONS: RunOption[] = [
@@ -51,7 +50,7 @@ export const MOCK_TRACKS: Track[] = [
   { id: '2', uri: 'spotify:track:2', title: 'Through the Fire and Flames - DragonForce [Maximum Overdrive Edition]', artist: 'DragonForce', album: 'Inhuman Rampage', imageUrl: 'https://i.scdn.co/image/ab67616d0000b273468962634e0689b910e5446f', durationMs: 441000, status: 'none' },
   { id: '3', uri: 'spotify:track:3', title: 'Starboy (feat. Daft Punk) - The Weeknd - PWA Jelly Glass Mix', artist: 'The Weeknd, Daft Punk', album: 'Starboy', imageUrl: 'https://i.scdn.co/image/ab67616d0000b2734718e0df50495f2a969b7617', durationMs: 230000, status: 'gem' },
   { id: '4', uri: 'spotify:track:4', title: 'Diamonds From Sierra Leone - Kanye West [Remix feat. Jay-Z] - Obsidian Vault Edition', artist: 'Kanye West, Jay-Z', album: 'Late Registration', imageUrl: 'https://i.scdn.co/image/ab67616d0000b273200969d750c00030560e9095', durationMs: 288000, status: 'liked' },
-  { id: '5', uri: 'spotify:track:5', title: 'Bat Country - Avenged Sevenfold [Live from Obsidian Theater]', artist: 'Avenged Sevenfold', album: 'City of Evil', imageUrl: 'https://i.scdn.co/image/ab67616d0000b273d6396f4e156488796853381e', durationMs: 313000, status: 'none' },
+  { id: '5', uri: 'spotify:track:5', title: 'Bat Country - Avenged Sevenfold [Live from Obsidian Theater]', artist: 'Avenged Sevenfold', album: 'City of Evil', imageUrl: 'https://i.scdn.co/image/ab67616d0000b2737604586e92b34a1795f573c0', durationMs: 313000, status: 'none' },
   { id: '6', uri: 'spotify:track:6', title: 'Lose Yourself - Eminem [8 Mile Original Soundtrack] - 20th Anniversary Edition', artist: 'Eminem', album: '8 Mile', imageUrl: 'https://i.scdn.co/image/ab67616d0000b27389e8014524c8038753a8f15d', durationMs: 326000, status: 'none' },
   { id: '7', uri: 'spotify:track:7', title: 'Amber - 311 [Acoustic Sessions 1994-2024 Ultimate Collection]', artist: '311', album: 'From Chaos', imageUrl: 'https://i.scdn.co/image/ab67616d0000b27393d027732a37397b9148d88e', durationMs: 209000, status: 'none' },
   { id: '8', uri: 'spotify:track:8', title: 'California Love - 2Pac feat. Dr. Dre [Death Row Records Vault Remaster]', artist: '2Pac, Dr. Dre, Roger Troutman', album: 'All Eyez on Me', imageUrl: 'https://i.scdn.co/image/ab67616d0000b27376c79a83a0058b8559812f86', durationMs: 284000, status: 'none' },

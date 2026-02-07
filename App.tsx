@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
+import React, { useState, useEffect, ErrorInfo, ReactNode } from 'react';
 import { TabType, RuleSettings, RunOption, RunRecord, SpotifyUser, RunResult, AppConfig } from './types';
 import HomeView from './components/HomeView';
 import HistoryView from './components/HistoryView';
@@ -26,14 +26,18 @@ interface ErrorBoundaryState {
 }
 
 /**
- * Fixed ErrorBoundary to correctly extend the React.Component class.
- * Using React.Component explicitly ensures 'props' and 'state' are correctly typed.
+ * Fixed ErrorBoundary to correctly extend React.Component.
+ * Using React.Component explicitly with its generic parameters and a constructor
+ * ensures that 'props' and 'state' are correctly defined in the class context.
  */
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
-  };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
     const normalized = error instanceof Error ? error : new Error("Unknown Error");
@@ -58,7 +62,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
     
-    // Use this.props to return children. Destructuring children from this.props.
+    // Using this.props correctly after inheritance fix
     const { children } = this.props;
     return children || null;
   }
@@ -225,98 +229,100 @@ const App: React.FC = () => {
   return (
     <div className="relative min-h-[100dvh] w-full overflow-hidden bg-black text-white">
       <InkBackground>
-        {/* Layer 0: Main Content */}
-        <div id="main-content-scroller" className="flex-1 overflow-y-auto ios-scroller w-full relative pb-[env(safe-area-inset-bottom)]">
-          {activeTab === 'Home' && (
-            <HomeView 
-              key={homeKey}
-              onSelect={handleStartRun} 
+        <ErrorBoundary>
+          {/* Layer 0: Main Content */}
+          <div id="main-content-scroller" className="flex-1 overflow-y-auto ios-scroller w-full relative pb-[calc(100px+env(safe-area-inset-bottom))]">
+            {activeTab === 'Home' && (
+              <HomeView 
+                key={homeKey}
+                onSelect={handleStartRun} 
+                rules={rules} 
+                setRules={setRules} 
+              />
+            )}
+            {activeTab === 'Vault' && (
+              <HistoryView 
+                history={history} 
+                onPreviewStarted={() => {
+                  setIsRunViewQueueMode(false);
+                }}
+                onPlayTriggered={() => {
+                  setIsPlayerVisible(true);
+                  setIsRunViewQueueMode(true);
+                }}
+              />
+            )}
+            {activeTab === 'Settings' && (
+              <SettingsView 
+                key={settingsKey}
+                config={config} 
+                rules={rules} 
+                setRules={setRules} 
+                spotifyUser={spotifyUser}
+                authStatus={authStatus}
+                authError={null}
+                setAuthStatus={setAuthStatus}
+              />
+            )}
+          </div>
+
+          {/* Layer 1: RunView Overlay */}
+          {activeRunOption && showRunOverlay && (
+            <RunView 
+              option={activeRunOption} 
               rules={rules} 
-              setRules={setRules} 
-            />
-          )}
-          {activeTab === 'Vault' && (
-            <HistoryView 
-              history={history} 
+              onClose={() => setShowRunOverlay(false)} 
+              onComplete={handleRunComplete}
+              initialResult={activeRunResult || undefined}
+              onResultUpdate={setActiveRunResult}
+              onPlayTriggered={() => {
+                 setIsPlayerVisible(true);
+                 setIsRunViewQueueMode(true); 
+              }}
               onPreviewStarted={() => {
                 setIsRunViewQueueMode(false);
               }}
-              onPlayTriggered={() => {
-                setIsPlayerVisible(true);
-                setIsRunViewQueueMode(true);
+              isQueueMode={isRunViewQueueMode}
+              onRegenerate={() => {
+                setActiveRunResult(null);
               }}
             />
           )}
-          {activeTab === 'Settings' && (
-            <SettingsView 
-              key={settingsKey}
-              config={config} 
-              rules={rules} 
-              setRules={setRules} 
-              spotifyUser={spotifyUser}
-              authStatus={authStatus}
-              authError={null}
-              setAuthStatus={setAuthStatus}
+
+          {/* Layer 2: Navbar */}
+          <nav className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center px-6 z-[2500] h-[85px] pb-[env(safe-area-inset-bottom)]">
+            {(['Home', 'Vault', 'Settings'] as TabType[]).map((tab) => {
+              const isActive = activeTab === tab;
+              return (
+                <button 
+                  key={tab} 
+                  onClick={() => handleTabClick(tab)}
+                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${isActive ? 'scale-110' : 'opacity-40'}`}
+                >
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${isActive ? 'bg-palette-pink text-white shadow-xl shadow-palette-pink/30' : 'text-zinc-500'}`}>
+                    {tab === 'Home' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>}
+                    {tab === 'Vault' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 12l10 10 10-10L12 2z"/></svg>}
+                    {tab === 'Settings' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7-1.62-.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l-.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>}
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-palette-pink' : 'text-zinc-600'}`}>
+                    {tab}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Layer 3: Player (Floating above Navbar, hidden only during RunView Preview) */}
+          {isPlayerVisible && !isCurrentlyInPreview && (
+            <NowPlayingStrip 
+              onStripClick={handleRestoreRun} 
+              onClose={() => {
+                  setIsPlayerVisible(false);
+                  setIsRunViewQueueMode(false);
+              }}
             />
           )}
-        </div>
-
-        {/* Layer 1: RunView Overlay */}
-        {activeRunOption && showRunOverlay && (
-          <RunView 
-            option={activeRunOption} 
-            rules={rules} 
-            onClose={() => setShowRunOverlay(false)} 
-            onComplete={handleRunComplete}
-            initialResult={activeRunResult || undefined}
-            onResultUpdate={setActiveRunResult}
-            onPlayTriggered={() => {
-               setIsPlayerVisible(true);
-               setIsRunViewQueueMode(true); 
-            }}
-            onPreviewStarted={() => {
-              setIsRunViewQueueMode(false);
-            }}
-            isQueueMode={isRunViewQueueMode}
-            onRegenerate={() => {
-              setActiveRunResult(null);
-            }}
-          />
-        )}
-
-        {/* Layer 2: Navbar */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center px-6 z-[2500] h-[85px] pb-[env(safe-area-inset-bottom)]">
-          {(['Home', 'Vault', 'Settings'] as TabType[]).map((tab) => {
-            const isActive = activeTab === tab;
-            return (
-              <button 
-                key={tab} 
-                onClick={() => handleTabClick(tab)}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${isActive ? 'scale-110' : 'opacity-40'}`}
-              >
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${isActive ? 'bg-palette-pink text-white shadow-xl shadow-palette-pink/30' : 'text-zinc-500'}`}>
-                  {tab === 'Home' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>}
-                  {tab === 'Vault' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 12l10 10 10-10L12 2z"/></svg>}
-                  {tab === 'Settings' && <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7-1.62-.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l-.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>}
-                </div>
-                <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-palette-pink' : 'text-zinc-600'}`}>
-                  {tab}
-                </span>
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Layer 3: Player (Floating above Navbar, hidden only during RunView Preview) */}
-        {isPlayerVisible && !isCurrentlyInPreview && (
-          <NowPlayingStrip 
-            onStripClick={handleRestoreRun} 
-            onClose={() => {
-                setIsPlayerVisible(false);
-                setIsRunViewQueueMode(false);
-            }}
-          />
-        )}
+        </ErrorBoundary>
         
         <ToastOverlay />
         <DemoModeIndicator />

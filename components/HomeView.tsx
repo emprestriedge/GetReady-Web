@@ -83,7 +83,7 @@ const VIBE_STYLES: Record<VibeType, { gradient: string, shadow: string, activeRi
     gradient: "from-[#6D28D9] to-[#8B5CF6]", 
     shadow: "rgba(109, 40, 217, 0.6)",
     activeRing: "ring-[#6D28D9]",
-    label: "FLASH"
+    label: "LIGHTNING"
   },
 };
 
