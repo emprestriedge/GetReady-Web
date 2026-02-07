@@ -223,12 +223,12 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     try {
       const uris = result.tracks.map(t => t.uri);
       
-      // PODCAST SPECIFIC: Ensure phone device is actually visible and active before trying play.
-      // Spotify often hides the iPhone Connect target briefly after a background deep-link.
+      // Ensure phone device is visible and active before trying play.
+      // 6s polling every 500ms implemented in spotifyPlayback.
       const deviceId = await spotifyPlayback.ensureDeviceVisibleAndActive(targetDeviceId);
       
       if (!deviceId) {
-        toastService.show("Spotify didn’t expose this phone as a device yet. Open Spotify on this phone and start any episode once, then try again.", "warning");
+        toastService.show("Open Spotify on this phone and start any episode once, then try again.", "warning");
         return;
       }
 
@@ -244,8 +244,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       toastService.show(feedbackMsg, "success");
     } catch (err: any) {
       console.error("Injection Error:", err);
-      // Detailed error is handled inside playUrisWithRetry via toast
-      throw err; 
     }
   };
 
@@ -260,7 +258,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
         setPendingInject(false);
         if (fallbackTimer) clearTimeout(fallbackTimer);
         // Initial wait for Spotify background session to start registering
-        setTimeout(() => injectMixToDevice(), 1200);
+        setTimeout(() => injectMixToDevice(), 1000);
       }
     };
 
@@ -321,7 +319,6 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     const firstTrack = result.tracks[0];
     
     // SURGICAL FIX: Trigger API injection for both Music AND Podcasts.
-    // Podcast flow now relies on ensureDeviceVisibleAndActive during the return event.
     setPendingInject(true);
 
     const url = spotifyUriToOpenUrl(firstTrack.uri);

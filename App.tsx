@@ -26,19 +26,14 @@ interface ErrorBoundaryState {
 }
 
 /**
- * Fixed ErrorBoundary to correctly extend React.Component and resolve TypeScript errors 
- * regarding missing 'props' property. Explicitly using React.Component ensures 
- * that the internal members like 'props' and 'state' are correctly inherited with types.
+ * Fixed ErrorBoundary to correctly extend the React.Component class.
+ * Using React.Component explicitly ensures 'props' and 'state' are correctly typed.
  */
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = {
     hasError: false,
     error: null
   };
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-  }
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
     const normalized = error instanceof Error ? error : new Error("Unknown Error");
@@ -63,7 +58,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
     
-    // Use this.props to return children. Destructuring children from this.props for clarity and to satisfy compiler.
+    // Use this.props to return children. Destructuring children from this.props.
     const { children } = this.props;
     return children || null;
   }
