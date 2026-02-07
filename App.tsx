@@ -27,10 +27,10 @@ interface ErrorBoundaryState {
 
 /**
  * Fixed ErrorBoundary to correctly extend React.Component and resolve TypeScript errors 
- * regarding 'override' and missing 'props' property.
+ * regarding missing 'props' property. Explicitly using React.Component ensures 
+ * that the internal members like 'props' and 'state' are correctly inherited with types.
  */
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Removed 'override' modifier as 'state' property initialization doesn't strictly require it in standard React class components
   public state: ErrorBoundaryState = {
     hasError: false,
     error: null
@@ -63,8 +63,9 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
     
-    // Use this.props to return children
-    return this.props.children || null;
+    // Use this.props to return children. Destructuring children from this.props for clarity and to satisfy compiler.
+    const { children } = this.props;
+    return children || null;
   }
 }
 

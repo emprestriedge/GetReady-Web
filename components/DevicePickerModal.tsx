@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SpotifyApi } from '../services/spotifyApi';
 import { SpotifyDevice } from '../types';
 import { Haptics } from '../services/haptics';
+import { apiLogger } from '../services/apiLogger';
 
 interface DevicePickerModalProps {
   onSelect: (deviceId: string) => void;
@@ -13,11 +14,30 @@ const DevicePickerModal: React.FC<DevicePickerModalProps> = ({ onSelect, onClose
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDevices = async () => {
+  /**
+   * fetchDevicesWithRetry - Polls up to 3 times to ensure late-appearing devices (like iPhone) are found.
+   */
+  const fetchDevicesWithRetry = async () => {
     setLoading(true);
     setError(null);
+    
+    let attempts = 0;
+    let list: SpotifyDevice[] = [];
+    
     try {
-      const list = await SpotifyApi.getDevices();
+      while (attempts < 3) {
+        apiLogger.logClick(`[PICKER] Fetching devices (Attempt ${attempts + 1})...`);
+        list = await SpotifyApi.getDevices();
+        
+        // If we found any device, or we found a smartphone, we can stop early
+        if (list.length > 0) {
+          const hasSmartphone = list.some(d => d.type.toLowerCase() === 'smartphone');
+          if (hasSmartphone || list.length > 1) break;
+        }
+        
+        attempts++;
+        if (attempts < 3) await new Promise(r => setTimeout(r, 700));
+      }
       setDevices(list);
     } catch (err: any) {
       setError(err.message || "Failed to fetch devices");
@@ -27,12 +47,12 @@ const DevicePickerModal: React.FC<DevicePickerModalProps> = ({ onSelect, onClose
   };
 
   useEffect(() => {
-    fetchDevices();
+    fetchDevicesWithRetry();
   }, []);
 
   const handleRefresh = () => {
     Haptics.light();
-    fetchDevices();
+    fetchDevicesWithRetry();
   };
 
   const handleDeviceClick = (deviceId: string) => {

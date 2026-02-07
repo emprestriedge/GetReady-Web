@@ -4,14 +4,47 @@ import { apiLogger } from './apiLogger';
 import { toastService } from './toastService';
 
 class SpotifyPlaybackService {
+  /**
+   * ensureDeviceVisibleAndActive - Polls for a device to appear in the list.
+   * Crucial for podcasts where the iPhone often takes a few seconds to expose its API after opening Spotify.
+   */
+  async ensureDeviceVisibleAndActive(targetDeviceId?: string, maxWaitMs: number = 6000): Promise<string | null> {
+    const startTime = Date.now();
+    apiLogger.logClick(`[DEVICE] Polling for device visibility (target: ${targetDeviceId || 'any/smartphone'})...`);
+    
+    while (Date.now() - startTime < maxWaitMs) {
+      try {
+        const devices = await SpotifyApi.getDevices();
+        
+        // Find target ID, or currently active, or first smartphone-type device
+        const found = targetDeviceId 
+          ? devices.find(d => d.id === targetDeviceId)
+          : devices.find(d => d.is_active) || devices.find(d => d.type.toLowerCase() === 'smartphone');
+
+        if (found) {
+          if (!found.is_active) {
+            apiLogger.logClick(`[DEVICE] Found ${found.name}. Activating...`);
+            await this.transferPlayback(found.id, false);
+            // Small wait for Spotify's internal state to catch up to the transfer
+            await new Promise(r => setTimeout(r, 450));
+          }
+          return found.id;
+        }
+      } catch (e) {
+        apiLogger.logError("Failed to poll devices during visibility check");
+      }
+      await new Promise(r => setTimeout(r, 600));
+    }
+    
+    return null;
+  }
+
   async ensureActiveDevice(targetDeviceId?: string): Promise<string> {
     const devices = await SpotifyApi.getDevices();
     const active = devices.find(d => d.is_active);
     
-    // If target provided and it's active, return it
     if (targetDeviceId && active?.id === targetDeviceId) return targetDeviceId;
     
-    // If none active, pick target or first available
     const chosen = targetDeviceId || active?.id || devices[0]?.id;
 
     if (!chosen) throw new Error("Open Spotify on a device and try again.");
@@ -28,12 +61,12 @@ class SpotifyPlaybackService {
   }
 
   /**
-   * playUrisWithRetry - Robust injection that handles Spotify background delays and transient infrastructure errors.
-   * This implements the requested transfer -> wait -> play -> retry pattern.
+   * playUrisWithRetry - Robust injection for tracks and episodes.
+   * Handles transient 5xx errors with backoff and retries.
    */
   async playUrisWithRetry(uris: string[], targetDeviceId?: string, offsetIndex?: number): Promise<void> {
     const retryDelays = [600, 900, 1200, 1500, 1800, 2100];
-    const transient5xxDelays = [400, 900, 1500]; // Specific backoff for 5xx
+    const transient5xxDelays = [400, 900, 1500];
     let attempt = 0;
 
     const execute = async (deviceId: string): Promise<void> => {
@@ -55,38 +88,19 @@ class SpotifyPlaybackService {
 
     while (attempt <= retryDelays.length) {
       try {
-        apiLogger.logClick(`[PLAYBACK] Attempt ${attempt + 1}: Resolving device...`);
-        const devices = await SpotifyApi.getDevices();
-        const active = devices.find(d => d.is_active);
-        const deviceToUse = targetDeviceId || active?.id || devices[0]?.id;
-
-        if (!deviceToUse) {
-          throw { status: 404, message: "No Spotify devices found. Open Spotify first." };
-        }
-
-        // Handshake: Transfer (if not active or first attempt)
-        if (!active || active.id !== deviceToUse || attempt === 0) {
-          apiLogger.logClick(`[PLAYBACK] Handshake: Transferring to ${deviceToUse}`);
-          await this.transferPlayback(deviceToUse, false);
-          // Wait for device to "wake up"
-          await new Promise(r => setTimeout(r, 1000));
-        }
-
+        const deviceToUse = targetDeviceId || await this.ensureActiveDevice();
         await execute(deviceToUse);
-        apiLogger.logClick(`[PLAYBACK] Success on attempt ${attempt + 1}`);
-        return; // Success!
-
+        return;
       } catch (err: any) {
-        const is404 = err.status === 404 || (err.message && err.message.includes('404'));
         const is5xx = [502, 503, 504].includes(err.status);
-        
-        if ((is404 || is5xx) && attempt < (is5xx ? transient5xxDelays.length : retryDelays.length)) {
-          const delay = is5xx ? transient5xxDelays[attempt] : retryDelays[attempt];
+        const canRetry = is5xx && attempt < transient5xxDelays.length;
+
+        if (canRetry) {
+          const delay = transient5xxDelays[attempt];
           apiLogger.logClick(`[PLAYBACK] Spotify error ${err.status}. Retrying in ${delay}ms...`);
           await new Promise(r => setTimeout(r, delay));
           attempt++;
         } else {
-          // Terminal error or non-retryable
           const msg = is5xx 
             ? "Spotify is temporarily unavailable. Try again."
             : `Playback Injection Failed (${err.status || 'ERR'}): ${err.message || 'Unknown Spotify error'}`;
@@ -100,7 +114,6 @@ class SpotifyPlaybackService {
   }
 
   async playUrisOnDevice(deviceId: string, uris: string[], offsetIndex?: number): Promise<void> {
-    // Legacy support wrapper
     return this.playUrisWithRetry(uris, deviceId, offsetIndex);
   }
 

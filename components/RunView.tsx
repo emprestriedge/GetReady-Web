@@ -212,7 +212,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
 
   /**
    * injectMixToDevice - Forcefully pushes the full composition into the target Spotify device.
-   * Now uses the robust playUrisWithRetry logic.
+   * Uses robust retry logic. For podcasts, it waits for device visibility specifically.
    */
   const injectMixToDevice = async (targetDeviceId?: string) => {
     if (!result?.tracks || result.tracks.length === 0) {
@@ -222,21 +222,30 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
 
     try {
       const uris = result.tracks.map(t => t.uri);
-      let offsetIndex = 0;
       
+      // PODCAST SPECIFIC: Ensure phone device is actually visible and active before trying play.
+      // Spotify often hides the iPhone Connect target briefly after a background deep-link.
+      const deviceId = await spotifyPlayback.ensureDeviceVisibleAndActive(targetDeviceId);
+      
+      if (!deviceId) {
+        toastService.show("Spotify didn’t expose this phone as a device yet. Open Spotify on this phone and start any episode once, then try again.", "warning");
+        return;
+      }
+
+      let offsetIndex = 0;
       if (currentPlayingUri) {
         const foundIdx = result.tracks.findIndex(t => t.uri === currentPlayingUri);
         if (foundIdx !== -1) offsetIndex = foundIdx;
       }
 
-      await spotifyPlayback.playUrisWithRetry(uris, targetDeviceId, offsetIndex);
+      await spotifyPlayback.playUrisWithRetry(uris, deviceId, offsetIndex);
       
       const feedbackMsg = targetDeviceId ? "Playback switched & Mix loaded" : "Mix loaded into Spotify";
       toastService.show(feedbackMsg, "success");
     } catch (err: any) {
       console.error("Injection Error:", err);
       // Detailed error is handled inside playUrisWithRetry via toast
-      throw err; // Re-throw so callers can react to failure
+      throw err; 
     }
   };
 
@@ -250,7 +259,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       if (pendingInject) {
         setPendingInject(false);
         if (fallbackTimer) clearTimeout(fallbackTimer);
-        // Wait for Spotify background session to fully activate
+        // Initial wait for Spotify background session to start registering
         setTimeout(() => injectMixToDevice(), 1200);
       }
     };
@@ -269,7 +278,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       window.addEventListener('focus', handleFocus);
       document.addEventListener('visibilitychange', handleVisibilityChange);
       
-      // 6-second Fail-safe: If visibility/focus doesn't trigger (e.g. split view or weird webview), try anyway.
+      // 6-second Fail-safe
       fallbackTimer = setTimeout(performInjection, 6000);
     }
 
@@ -278,7 +287,7 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (fallbackTimer) clearTimeout(fallbackTimer);
     };
-  }, [pendingInject, result, currentPlayingUri]);
+  }, [pendingInject, result, currentPlayingUri, option.type]);
 
   useEffect(() => {
     if (!viewMode || viewMode !== 'QUEUE') {
@@ -311,11 +320,9 @@ const RunView: React.FC<RunViewProps> = ({ option, rules, onClose, onComplete, i
     
     const firstTrack = result.tracks[0];
     
-    // SURGICAL FIX: Only use API injection for Music.
-    // Podcasts rely on Spotify's deep-link to start playback, avoiding 502 loop on return.
-    if (option.type === RunOptionType.MUSIC) {
-      setPendingInject(true);
-    }
+    // SURGICAL FIX: Trigger API injection for both Music AND Podcasts.
+    // Podcast flow now relies on ensureDeviceVisibleAndActive during the return event.
+    setPendingInject(true);
 
     const url = spotifyUriToOpenUrl(firstTrack.uri);
     window.location.href = url;

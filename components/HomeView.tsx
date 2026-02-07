@@ -244,9 +244,17 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
                     <span className="text-[9px] font-black text-palette-teal/60 uppercase tracking-widest">Energy Level</span>
                     <AnimatedLabel value={rules.calmHype} />
                   </div>
-                  <div className="px-2 py-4 -my-4 flex items-center relative touch-pan-y">
+                  <div className="px-2 py-8 -my-8 flex items-center relative touch-pan-y">
                     <div className="absolute left-2 right-2 h-1.5 bg-zinc-800 rounded-full pointer-events-none" />
-                    <input type="range" min="0" max="1" step="0.01" value={rules.calmHype} onChange={(e) => setRules(prev => ({ ...prev, calmHype: parseFloat(e.target.value) }))} className="w-full h-10 appearance-none bg-transparent cursor-pointer accent-palette-teal relative z-10" />
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="1" 
+                      step="0.01" 
+                      value={rules.calmHype} 
+                      onChange={(e) => setRules(prev => ({ ...prev, calmHype: parseFloat(e.target.value) }))} 
+                      className="w-full h-16 appearance-none bg-transparent cursor-pointer accent-palette-teal relative z-10 outline-none" 
+                    />
                   </div>
                   <div className="flex justify-between px-4 mt-1 text-[8px] font-black text-zinc-700 uppercase tracking-tighter"><span>Relaxed</span><span>Hyper</span></div>
                 </div>
@@ -257,9 +265,17 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelect, rules, setRules }) => {
                     <span className="text-[9px] font-black text-palette-pink/60 uppercase tracking-widest">Exploration</span>
                     <span className="text-[10px] font-black text-palette-pink uppercase tracking-widest">{Math.round(rules.discoverLevel * 100)}% New</span>
                   </div>
-                  <div className="px-2 py-4 -my-4 flex items-center relative touch-pan-y">
+                  <div className="px-2 py-8 -my-8 flex items-center relative touch-pan-y">
                     <div className="absolute left-2 right-2 h-1.5 bg-zinc-800 rounded-full pointer-events-none" />
-                    <input type="range" min="0" max="1" step="0.05" value={rules.discoverLevel} onChange={(e) => setRules(prev => ({ ...prev, discoverLevel: parseFloat(e.target.value) }))} className="w-full h-10 appearance-none bg-transparent cursor-pointer accent-palette-pink relative z-10" />
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="1" 
+                      step="0.05" 
+                      value={rules.discoverLevel} 
+                      onChange={(e) => setRules(prev => ({ ...prev, discoverLevel: parseFloat(e.target.value) }))} 
+                      className="w-full h-16 appearance-none bg-transparent cursor-pointer accent-palette-pink relative z-10 outline-none" 
+                    />
                   </div>
                   <div className="flex justify-between px-4 mt-1 text-[8px] font-black text-zinc-700 uppercase tracking-tighter"><span>Comfort</span><span>Discovery</span></div>
                 </div>
