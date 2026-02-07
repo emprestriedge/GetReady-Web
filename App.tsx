@@ -25,11 +25,14 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fixed ErrorBoundary to explicitly extend Component to ensure 
-// that state and props are correctly recognized by the TypeScript compiler.
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+/**
+ * Fixed ErrorBoundary to explicitly extend React.Component to ensure 
+ * that state and props are correctly recognized by the TypeScript compiler.
+ */
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    // Initialize state properly
     this.state = { hasError: false, error: null };
   }
 
@@ -43,6 +46,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
+    // Correctly check this.state for error tracking
     if (this.state.hasError) {
       return (
         <div className="fixed inset-0 bg-black flex items-center justify-center p-8 z-[999]">
@@ -55,6 +59,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
     
+    // Use this.props to return children
     return this.props.children || null;
   }
 }

@@ -198,7 +198,7 @@ const PodcastManagerView: React.FC<PodcastManagerViewProps> = ({ onBack }) => {
 
       {showPicker && (
         <div 
-          className="fixed inset-0 z-[250] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300 pointer-events-auto"
+          className="fixed inset-0 z-[10001] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300 pointer-events-auto"
           onClick={handleClosePicker}
         >
            <div 
